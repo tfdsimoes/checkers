@@ -9,20 +9,25 @@ import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Font;
+import java.awt.FontMetrics;
+import java.awt.GradientPaint;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.awt.geom.Path2D;
 import java.util.List;
 import java.util.function.Consumer;
 import javax.swing.JPanel;
 
 final class GameBoardPanel extends JPanel {
-    private static final Color LIGHT_SQUARE = new Color(238, 216, 181);
-    private static final Color DARK_SQUARE = new Color(105, 73, 52);
+    private static final Color LIGHT_SQUARE = new Color(225, 202, 165);
+    private static final Color DARK_SQUARE = new Color(112, 75, 53);
     private static final Color SELECTED_SQUARE = new Color(225, 190, 65);
     private static final Color LEGAL_DESTINATION = new Color(110, 180, 90);
+    private static final Color COORDINATE_LABEL = new Color(80, 57, 39);
+    private static final Color SQUARE_LABEL = new Color(245, 222, 184);
 
     private final GameState game;
     private final Consumer<Position> clickHandler;
@@ -37,13 +42,13 @@ final class GameBoardPanel extends JPanel {
             @Override
             public void mousePressed(MouseEvent event) {
                 int cell = cellSize();
-                int left = (getWidth() - cell * Board.SIZE) / 2;
-                int top = (getHeight() - cell * Board.SIZE) / 2;
+                int left = boardLeft(cell);
+                int top = boardTop(cell);
                 int column = (event.getX() - left) / cell;
                 int row = (event.getY() - top) / cell;
                 if (event.getX() >= left && event.getY() >= top
                         && column >= 0 && column < Board.SIZE && row >= 0 && row < Board.SIZE) {
-                    clickHandler.accept(new Position(row, column));
+                    clickHandler.accept(BoardViewCoordinates.toBoardPosition(row, column, false));
                 }
             }
         });
@@ -61,16 +66,15 @@ final class GameBoardPanel extends JPanel {
         Graphics2D g = (Graphics2D) graphics.create();
         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         int cell = cellSize();
-        int left = (getWidth() - cell * Board.SIZE) / 2;
-        int top = (getHeight() - cell * Board.SIZE) / 2;
+        int left = boardLeft(cell);
+        int top = boardTop(cell);
         Board board = game.board();
         for (int row = 0; row < Board.SIZE; row++) {
             for (int column = 0; column < Board.SIZE; column++) {
                 int x = left + column * cell;
                 int y = top + row * cell;
                 Position position = new Position(row, column);
-                g.setColor(position.isPlayable() ? DARK_SQUARE : LIGHT_SQUARE);
-                g.fillRect(x, y, cell, cell);
+                paintSquare(g, position.isPlayable(), x, y, cell);
                 if (position.equals(selected)) {
                     g.setColor(SELECTED_SQUARE);
                     g.fillRect(x, y, cell, cell);
@@ -79,12 +83,64 @@ final class GameBoardPanel extends JPanel {
                     g.fillOval(x + cell / 3, y + cell / 3, cell / 3, cell / 3);
                 }
                 paintPiece(g, board.pieceAt(position), x, y, cell);
+                paintSquareNumber(g, position, x, y, cell);
             }
         }
         g.setColor(Color.BLACK);
         g.setStroke(new BasicStroke(2));
         g.drawRect(left, top, cell * Board.SIZE, cell * Board.SIZE);
+        paintCoordinates(g, left, top, cell);
         g.dispose();
+    }
+
+    private void paintCoordinates(Graphics2D graphics, int left, int top, int cell) {
+        int margin = coordinateMargin();
+        int boardSize = cell * Board.SIZE;
+        graphics.setColor(COORDINATE_LABEL);
+        graphics.setFont(new Font(Font.SANS_SERIF, Font.BOLD, Math.max(10, Math.min(16, cell / 5))));
+        FontMetrics metrics = graphics.getFontMetrics();
+        int topBaseline = top - (margin + metrics.getHeight()) / 2 + metrics.getDescent();
+        int bottomBaseline = top + boardSize + (margin + metrics.getHeight()) / 2 - metrics.getDescent();
+        int middleBaselineOffset = (cell + metrics.getAscent() - metrics.getDescent()) / 2;
+
+        for (int column = 0; column < Board.SIZE; column++) {
+            String label = Character.toString((char) ('A' + column));
+            int x = left + column * cell + (cell - metrics.stringWidth(label)) / 2;
+            graphics.drawString(label, x, topBaseline);
+            graphics.drawString(label, x, bottomBaseline);
+        }
+        for (int row = 0; row < Board.SIZE; row++) {
+            String label = Integer.toString(Board.SIZE - row);
+            int y = top + row * cell + middleBaselineOffset;
+            int labelWidth = metrics.stringWidth(label);
+            graphics.drawString(label, left - (margin + labelWidth) / 2, y);
+            graphics.drawString(label, left + boardSize + (margin - labelWidth) / 2, y);
+        }
+    }
+
+    private static void paintSquare(Graphics2D graphics, boolean playable, int x, int y, int cell) {
+        Color start = playable ? new Color(132, 91, 63) : new Color(246, 225, 190);
+        Color end = playable ? DARK_SQUARE : LIGHT_SQUARE;
+        graphics.setPaint(new GradientPaint(x, y, start, x + cell, y + cell, end));
+        graphics.fillRect(x, y, cell, cell);
+    }
+
+    private static void paintSquareNumber(Graphics2D graphics, Position position, int x, int y, int cell) {
+        if (!position.isPlayable()) {
+            return;
+        }
+        graphics.setFont(new Font(Font.SANS_SERIF, Font.BOLD, Math.max(9, cell / 10)));
+        FontMetrics metrics = graphics.getFontMetrics();
+        String label = Integer.toString(position.squareNumber());
+        int labelX = x + cell / 16;
+        int labelY = y + cell / 16;
+        int padding = Math.max(2, cell / 40);
+        int labelWidth = metrics.stringWidth(label);
+        graphics.setColor(new Color(50, 35, 25, 210));
+        graphics.fillRoundRect(labelX, labelY, labelWidth + padding * 2,
+                metrics.getHeight() + padding, padding * 2, padding * 2);
+        graphics.setColor(SQUARE_LABEL);
+        graphics.drawString(label, labelX + padding, labelY + metrics.getAscent() + padding / 2);
     }
 
     private static void paintPiece(Graphics2D graphics, Piece piece, int x, int y, int cell) {
@@ -92,22 +148,64 @@ final class GameBoardPanel extends JPanel {
             return;
         }
         int margin = cell / 8;
+        int diameter = cell - 2 * margin;
+        graphics.setColor(new Color(25, 20, 16, 95));
+        graphics.fillOval(x + margin + 2, y + margin + 4, diameter, diameter);
+        Color highlight = piece.side() == Side.BLACK
+                ? new Color(100, 100, 100)
+                : new Color(255, 252, 240);
+        Color shade = piece.side() == Side.BLACK
+                ? new Color(25, 25, 25)
+                : new Color(183, 162, 125);
+        graphics.setPaint(new GradientPaint(x + margin, y + margin, highlight,
+                x + cell - margin, y + cell - margin, shade));
+        graphics.fillOval(x + margin, y + margin, diameter, diameter);
         graphics.setColor(piece.side() == Side.BLACK
-                ? new Color(40, 40, 40)
-                : new Color(245, 245, 235));
-        graphics.fillOval(x + margin, y + margin, cell - 2 * margin, cell - 2 * margin);
-        graphics.setColor(piece.side() == Side.BLACK
-                ? new Color(220, 220, 220)
-                : new Color(65, 65, 65));
+                ? new Color(210, 204, 191)
+                : new Color(97, 75, 51));
         graphics.setStroke(new BasicStroke(Math.max(2, cell / 40)));
-        graphics.drawOval(x + margin + 2, y + margin + 2, cell - 2 * margin - 4, cell - 2 * margin - 4);
+        graphics.drawOval(x + margin + 2, y + margin + 2, diameter - 4, diameter - 4);
         if (piece.king()) {
-            graphics.setFont(new Font(Font.SANS_SERIF, Font.BOLD, Math.max(12, cell / 3)));
-            graphics.drawString("K", x + cell / 2 - cell / 10, y + cell * 2 / 3);
+            paintCrown(graphics, x, y, cell);
         }
     }
 
+    private static void paintCrown(Graphics2D graphics, int x, int y, int cell) {
+        float crownX = x + cell * 0.27f;
+        float crownY = y + cell * 0.31f;
+        float crownWidth = cell * 0.46f;
+        float crownHeight = cell * 0.38f;
+        Path2D crown = new Path2D.Float();
+        crown.moveTo(crownX, crownY + crownHeight * 0.82f);
+        crown.lineTo(crownX + crownWidth * 0.08f, crownY + crownHeight * 0.18f);
+        crown.lineTo(crownX + crownWidth * 0.36f, crownY + crownHeight * 0.52f);
+        crown.lineTo(crownX + crownWidth * 0.5f, crownY);
+        crown.lineTo(crownX + crownWidth * 0.64f, crownY + crownHeight * 0.52f);
+        crown.lineTo(crownX + crownWidth * 0.92f, crownY + crownHeight * 0.18f);
+        crown.lineTo(crownX + crownWidth, crownY + crownHeight * 0.82f);
+        crown.closePath();
+        graphics.setColor(new Color(238, 190, 76));
+        graphics.fill(crown);
+        graphics.setColor(new Color(77, 52, 29));
+        graphics.setStroke(new BasicStroke(Math.max(1, cell / 45)));
+        graphics.draw(crown);
+        graphics.drawLine((int) (crownX + crownWidth * 0.12f), (int) (crownY + crownHeight * 0.9f),
+                (int) (crownX + crownWidth * 0.88f), (int) (crownY + crownHeight * 0.9f));
+    }
+
     private int cellSize() {
-        return Math.max(1, Math.min(getWidth(), getHeight()) / Board.SIZE);
+        return Math.max(1, (Math.min(getWidth(), getHeight()) - 2 * coordinateMargin()) / Board.SIZE);
+    }
+
+    private int coordinateMargin() {
+        return Math.max(18, Math.min(getWidth(), getHeight()) / 24);
+    }
+
+    private int boardLeft(int cell) {
+        return (getWidth() - cell * Board.SIZE) / 2;
+    }
+
+    private int boardTop(int cell) {
+        return (getHeight() - cell * Board.SIZE) / 2;
     }
 }
