@@ -59,6 +59,8 @@ final class GameSetupWindow extends JFrame {
         this.setup = GameSetup.create(configuration);
         this.returnHandler = returnHandler;
         this.boardPanel = new GameBoardPanel(setup.game(), this::handleBoardClick);
+        this.boardPanel.setFlipped(BoardViewCoordinates.shouldFlipForWhitePlayer(
+                configuration.mode(), configuration.firstPlayerSide()));
 
         setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
         addWindowListener(new java.awt.event.WindowAdapter() {
@@ -345,8 +347,10 @@ final class GameSetupWindow extends JFrame {
 
     private void makeMove(Move move) {
         GameState game = setup.game();
+        Piece movingPiece = game.pieceAt(move.from());
         undoSnapshots.add(game.copy());
         game.makeMove(move);
+        boardPanel.animateMove(move, movingPiece);
         drawOfferBy = null;
         drawResponseReady = false;
     }
@@ -363,6 +367,8 @@ final class GameSetupWindow extends JFrame {
         undoSnapshots.subList(undoSnapshots.size() - moveCount, undoSnapshots.size()).clear();
         drawOfferBy = null;
         clearSelection();
+        List<Move> history = setup.game().history();
+        boardPanel.setLastMove(history.isEmpty() ? null : history.get(history.size() - 1));
         refresh();
         startAiTurn();
     }

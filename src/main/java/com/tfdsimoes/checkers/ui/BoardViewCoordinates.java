@@ -1,11 +1,19 @@
 package com.tfdsimoes.checkers.ui;
 
+import com.tfdsimoes.checkers.game.GameMode;
 import com.tfdsimoes.checkers.model.Board;
 import com.tfdsimoes.checkers.model.Position;
+import com.tfdsimoes.checkers.model.Side;
 import java.util.Objects;
 
 final class BoardViewCoordinates {
     private BoardViewCoordinates() {
+    }
+
+    static boolean shouldFlipForWhitePlayer(GameMode mode, Side humanSide) {
+        Objects.requireNonNull(mode, "mode");
+        Objects.requireNonNull(humanSide, "humanSide");
+        return mode == GameMode.PLAYER_VS_MACHINE && humanSide == Side.WHITE;
     }
 
     static Position toBoardPosition(int viewRow, int viewColumn, boolean flipped) {
