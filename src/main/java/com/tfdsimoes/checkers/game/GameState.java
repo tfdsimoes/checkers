@@ -76,6 +76,10 @@ public final class GameState {
         return MoveGenerator.legalMoves(board, currentPlayer);
     }
 
+    public int legalMovesFor(Side side) {
+        return MoveGenerator.legalMoves(board, Objects.requireNonNull(side, "side")).size();
+    }
+
     public void makeMove(Move move) {
         Objects.requireNonNull(move, "move");
         if (status != GameStatus.IN_PROGRESS) {
