@@ -8,7 +8,7 @@ Install Java 25 or newer and Apache Maven, then build and launch the executable 
 
 ```text
 mvn clean package
-java -jar target/checkers-1.0-SNAPSHOT.jar
+java -jar target/checkers-1.0.0.jar
 ```
 
 The project intentionally does not use the Maven wrapper.
