@@ -11,19 +11,31 @@ import com.tfdsimoes.checkers.model.Move;
 import com.tfdsimoes.checkers.model.Piece;
 import com.tfdsimoes.checkers.model.Position;
 import com.tfdsimoes.checkers.model.Side;
+import java.awt.BasicStroke;
 import java.awt.BorderLayout;
+import java.awt.Color;
 import java.awt.FlowLayout;
+import java.awt.Font;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.GridLayout;
+import java.awt.Insets;
+import java.awt.Polygon;
+import java.awt.RenderingHints;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Consumer;
+import javax.swing.BorderFactory;
+import javax.swing.Icon;
 import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.SwingConstants;
 import javax.swing.SwingWorker;
+import javax.swing.border.EmptyBorder;
 
 final class GameSetupWindow extends JFrame {
     private final GameSetup setup;
@@ -37,6 +49,8 @@ final class GameSetupWindow extends JFrame {
     private final JButton declineDrawButton = new JButton("Decline");
     private final GameBoardPanel boardPanel;
     private final GameSidebarPanel sidebarPanel = new GameSidebarPanel();
+    private final GamePlayerCard blackPlayerCard = new GamePlayerCard(Side.BLACK);
+    private final GamePlayerCard whitePlayerCard = new GamePlayerCard(Side.WHITE);
     private SwingWorker<Move, Void> aiWorker;
     private final List<GameState> undoSnapshots = new ArrayList<>();
     private List<Move> selectedMoves = List.of();
@@ -64,12 +78,32 @@ final class GameSetupWindow extends JFrame {
                 returnToMenu();
             }
         });
+        status.setOpaque(true);
+        status.setBackground(new Color(38, 53, 73));
+        status.setForeground(Color.WHITE);
+        status.setBorder(new EmptyBorder(10, 12, 10, 12));
+        status.setFont(status.getFont().deriveFont(Font.BOLD, 14f));
+
+        JPanel playerCards = new JPanel(new GridLayout(1, 2, 8, 0));
+        playerCards.add(blackPlayerCard);
+        playerCards.add(whitePlayerCard);
+        JPanel header = new JPanel(new BorderLayout(8, 8));
+        header.add(status, BorderLayout.NORTH);
+        header.add(playerCards, BorderLayout.CENTER);
+
         setLayout(new BorderLayout(8, 8));
-        add(status, BorderLayout.NORTH);
+        add(header, BorderLayout.NORTH);
         add(boardPanel, BorderLayout.CENTER);
         add(sidebarPanel, BorderLayout.EAST);
 
         JButton menuButton = new JButton("Menu");
+        configureToolbarButton(pauseButton, "Pause", ToolbarGlyph.PAUSE);
+        configureToolbarButton(undoButton, "Undo", ToolbarGlyph.UNDO);
+        configureToolbarButton(offerDrawButton, "Offer draw", ToolbarGlyph.OFFER);
+        configureToolbarButton(passDrawButton, "Pass to opponent", ToolbarGlyph.HANDOFF);
+        configureToolbarButton(agreeDrawButton, "Agree to draw", ToolbarGlyph.ACCEPT);
+        configureToolbarButton(declineDrawButton, "Decline", ToolbarGlyph.DECLINE);
+        configureToolbarButton(menuButton, "Menu", ToolbarGlyph.MENU);
         menuButton.addActionListener(event -> returnToMenu());
         pauseButton.addActionListener(event -> togglePause());
         undoButton.addActionListener(event -> undo());
@@ -78,6 +112,7 @@ final class GameSetupWindow extends JFrame {
         agreeDrawButton.addActionListener(event -> agreeToDraw());
         declineDrawButton.addActionListener(event -> declineDraw());
         JPanel controls = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        controls.setBorder(BorderFactory.createEmptyBorder(4, 0, 0, 0));
         controls.add(pauseButton);
         controls.add(undoButton);
         controls.add(offerDrawButton);
@@ -178,7 +213,6 @@ final class GameSetupWindow extends JFrame {
 
     private void togglePause() {
         paused = !paused;
-        pauseButton.setText(paused ? "Resume" : "Pause");
         aiTurnGeneration++;
         if (paused && aiWorker != null) {
             aiWorker.cancel(true);
@@ -228,19 +262,25 @@ final class GameSetupWindow extends JFrame {
                     refresh();
                     startAiTurn();
                 } catch (CancellationException exception) {
-                    status.setText("AI move was cancelled.");
+                    displayAiError("AI move was cancelled.");
                 } catch (InterruptedException exception) {
                     Thread.currentThread().interrupt();
-                    status.setText("AI move was interrupted.");
+                    displayAiError("AI move was interrupted.");
                 } catch (ExecutionException exception) {
-                    status.setText("AI failed: " + exception.getCause().getMessage());
+                    Throwable cause = exception.getCause();
+                    displayAiError("AI failed: " + (cause == null ? exception.getMessage() : cause.getMessage()));
                 } catch (IllegalArgumentException | IllegalStateException exception) {
-                    status.setText("AI returned an invalid move: " + exception.getMessage());
+                    displayAiError("AI returned an invalid move: " + exception.getMessage());
                 }
             }
         };
         refresh();
         aiWorker.execute();
+    }
+
+    private void displayAiError(String message) {
+        refresh();
+        status.setText(message);
     }
 
     private void refresh() {
@@ -254,7 +294,7 @@ final class GameSetupWindow extends JFrame {
             String lastMove = game.history().isEmpty()
                     ? ""
                     : " | Last move: " + game.history().get(game.history().size() - 1).notation();
-            status.setText(context + " | " + turn + lastMove + algorithmSuffix());
+            status.setText(context + " | " + turn + lastMove);
         } else {
             String result = switch (game.status()) {
                 case BLACK_WON -> "Black wins";
@@ -262,8 +302,14 @@ final class GameSetupWindow extends JFrame {
                 case DRAW -> "Draw";
                 case IN_PROGRESS -> "";
             };
-            status.setText(context + " | " + result + algorithmSuffix());
+            status.setText(context + " | " + result);
         }
+        updatePlayerCards(game);
+        configureToolbarButton(pauseButton, paused ? "Resume" : "Pause",
+                paused ? ToolbarGlyph.PLAY : ToolbarGlyph.PAUSE);
+        configureToolbarButton(passDrawButton,
+                drawOfferBy == null ? "Pass to opponent" : "Hand to " + drawOfferBy.opposite(),
+                ToolbarGlyph.HANDOFF);
         pauseButton.setEnabled(game.status() == GameStatus.IN_PROGRESS);
         undoButton.setEnabled(aiWorker == null
                 && UndoPolicy.movesToUndo(
@@ -281,7 +327,6 @@ final class GameSetupWindow extends JFrame {
         offerDrawButton.setEnabled(game.status() == GameStatus.IN_PROGRESS
                 && setup.configuration().mode() == GameMode.PLAYER_VS_PLAYER
                 && drawOfferBy == null);
-        passDrawButton.setText(drawOfferBy == null ? "Pass to opponent" : "Hand to " + drawOfferBy.opposite());
         passDrawButton.setVisible(drawOfferPending && !drawResponseReady);
         passDrawButton.setEnabled(drawOfferPending && !drawResponseReady);
         agreeDrawButton.setVisible(drawResponseVisible);
@@ -289,6 +334,33 @@ final class GameSetupWindow extends JFrame {
         agreeDrawButton.setEnabled(drawResponseVisible);
         declineDrawButton.setEnabled(drawResponseVisible);
         boardPanel.repaint();
+    }
+
+    private void updatePlayerCards(GameState game) {
+        updatePlayerCard(blackPlayerCard, Side.BLACK, game);
+        updatePlayerCard(whitePlayerCard, Side.WHITE, game);
+    }
+
+    private void updatePlayerCard(GamePlayerCard card, Side side, GameState game) {
+        boolean active = game.status() == GameStatus.IN_PROGRESS && game.currentPlayer() == side;
+        String turnStatus;
+        if (game.status() == GameStatus.DRAW) {
+            turnStatus = "DRAW";
+        } else if (game.status() == GameStatus.BLACK_WON || game.status() == GameStatus.WHITE_WON) {
+            turnStatus = (game.status() == GameStatus.BLACK_WON && side == Side.BLACK)
+                            || (game.status() == GameStatus.WHITE_WON && side == Side.WHITE)
+                    ? "WINNER"
+                    : "GAME OVER";
+        } else if (!active) {
+            turnStatus = "WAITING";
+        } else if (paused) {
+            turnStatus = "PAUSED";
+        } else if (aiWorker != null && !setup.controllerFor(side).isHuman()) {
+            turnStatus = "THINKING";
+        } else {
+            turnStatus = "TO MOVE";
+        }
+        card.update(setup.controllerFor(side), active, turnStatus);
     }
 
     private void offerDraw() {
@@ -364,9 +436,15 @@ final class GameSetupWindow extends JFrame {
         startAiTurn();
     }
 
-    private String algorithmSuffix() {
-        String names = setup.algorithmNames();
-        return names.isEmpty() ? "" : " | " + names;
+    private void configureToolbarButton(JButton button, String text, ToolbarGlyph glyph) {
+        button.setText(text);
+        button.setIcon(new ToolbarIcon(glyph));
+        button.setToolTipText(text);
+        button.getAccessibleContext().setAccessibleName(text);
+        button.setIconTextGap(6);
+        button.setFocusPainted(false);
+        button.setMargin(new Insets(6, 10, 6, 10));
+        button.putClientProperty("JButton.buttonType", "roundRect");
     }
 
     private void returnToMenu() {
@@ -383,5 +461,84 @@ final class GameSetupWindow extends JFrame {
                 : setup.configuration().nextGame();
         dispose();
         returnHandler.accept(nextConfiguration);
+    }
+
+    private enum ToolbarGlyph {
+        PAUSE,
+        PLAY,
+        UNDO,
+        OFFER,
+        HANDOFF,
+        ACCEPT,
+        DECLINE,
+        MENU
+    }
+
+    private static final class ToolbarIcon implements Icon {
+        private final ToolbarGlyph glyph;
+
+        private ToolbarIcon(ToolbarGlyph glyph) {
+            this.glyph = glyph;
+        }
+
+        @Override
+        public int getIconWidth() {
+            return 18;
+        }
+
+        @Override
+        public int getIconHeight() {
+            return 18;
+        }
+
+        @Override
+        public void paintIcon(java.awt.Component component, Graphics graphics, int x, int y) {
+            Graphics2D g = (Graphics2D) graphics.create();
+            g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g.setColor(component.isEnabled() ? new Color(58, 70, 83) : new Color(155, 160, 166));
+            g.setStroke(new BasicStroke(2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+            switch (glyph) {
+                case PAUSE -> {
+                    g.fillRoundRect(x + 4, y + 3, 4, 12, 2, 2);
+                    g.fillRoundRect(x + 11, y + 3, 4, 12, 2, 2);
+                }
+                case PLAY -> g.fillPolygon(new Polygon(
+                        new int[] {x + 5, x + 15, x + 5},
+                        new int[] {y + 3, y + 9, y + 15},
+                        3));
+                case UNDO -> {
+                    g.drawArc(x + 4, y + 4, 11, 11, 35, 285);
+                    g.drawLine(x + 4, y + 4, x + 4, y + 9);
+                    g.drawLine(x + 4, y + 4, x + 9, y + 4);
+                }
+                case OFFER -> {
+                    g.drawRoundRect(x + 2, y + 3, 14, 10, 3, 3);
+                    g.drawLine(x + 5, y + 13, x + 3, y + 16);
+                    g.drawLine(x + 5, y + 13, x + 8, y + 13);
+                }
+                case HANDOFF -> {
+                    g.drawLine(x + 3, y + 6, x + 14, y + 6);
+                    g.drawLine(x + 11, y + 3, x + 14, y + 6);
+                    g.drawLine(x + 11, y + 9, x + 14, y + 6);
+                    g.drawLine(x + 15, y + 12, x + 4, y + 12);
+                    g.drawLine(x + 7, y + 9, x + 4, y + 12);
+                    g.drawLine(x + 7, y + 15, x + 4, y + 12);
+                }
+                case ACCEPT -> {
+                    g.drawLine(x + 3, y + 9, x + 7, y + 13);
+                    g.drawLine(x + 7, y + 13, x + 15, y + 4);
+                }
+                case DECLINE -> {
+                    g.drawLine(x + 4, y + 4, x + 14, y + 14);
+                    g.drawLine(x + 14, y + 4, x + 4, y + 14);
+                }
+                case MENU -> {
+                    g.drawLine(x + 3, y + 4, x + 15, y + 4);
+                    g.drawLine(x + 3, y + 9, x + 15, y + 9);
+                    g.drawLine(x + 3, y + 14, x + 15, y + 14);
+                }
+            }
+            g.dispose();
+        }
     }
 }
