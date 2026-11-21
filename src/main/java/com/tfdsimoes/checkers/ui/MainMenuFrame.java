@@ -57,22 +57,24 @@ final class MainMenuFrame extends JFrame {
         mode.setSelectedItem(configuration.mode());
         difficulty.setSelectedItem(configuration.difficulty());
         firstPlayerSide.setSelectedItem(configuration.firstPlayerSide());
-        seed.setText(Long.toString(configuration.seed()));
+        seed.setText(configuration.randomSeed() ? "" : Long.toString(configuration.seed()));
         message.setText(" ");
         updateFields();
     }
 
     private void start(Consumer<GameConfiguration> startGame) {
         try {
-            long seedValue = seed.getText().isBlank()
+            boolean randomSeed = seed.getText().isBlank();
+            long seedValue = randomSeed
                     ? new SplittableRandom().nextLong()
                     : Long.parseLong(seed.getText().trim());
-            GameConfiguration configuration = new GameConfiguration(
-                    (GameMode) mode.getSelectedItem(),
-                    (Difficulty) difficulty.getSelectedItem(),
-                    (Side) firstPlayerSide.getSelectedItem(),
-                    seedValue);
-            seed.setText(Long.toString(seedValue));
+            GameMode selectedMode = (GameMode) mode.getSelectedItem();
+            Difficulty selectedDifficulty = (Difficulty) difficulty.getSelectedItem();
+            Side selectedSide = (Side) firstPlayerSide.getSelectedItem();
+            GameConfiguration configuration = randomSeed
+                    ? GameConfiguration.withRandomSeed(selectedMode, selectedDifficulty, selectedSide, seedValue)
+                    : new GameConfiguration(selectedMode, selectedDifficulty, selectedSide, seedValue);
+            seed.setText(randomSeed ? "" : Long.toString(seedValue));
             message.setText(" ");
             startGame.accept(configuration);
         } catch (NumberFormatException exception) {
