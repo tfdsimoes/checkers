@@ -1,10 +1,10 @@
 # Checkers
 
-An English draughts game written in Java 21 with a Swing interface.
+An English draughts game written in Java 25 with a Swing interface.
 
 ## Run
 
-Install Java 21 or newer and Apache Maven, then build and launch the executable JAR:
+Install Java 25 or newer and Apache Maven, then build and launch the executable JAR:
 
 ```text
 mvn clean package
@@ -42,7 +42,7 @@ Each machine chooses a strategy uniformly from its difficulty pool when a game i
 | Medium | Alpha-beta depth 4; alpha-beta depth 6 with move ordering; MCTS with 1,000 iterations |
 | Hard | Iterative-deepening alpha-beta with a transposition table and killer moves (maximum depth 8); alpha-beta with quiescence search (maximum 10,000 extra nodes per move); MCTS with 5,000 iterations |
 
-The test suite checks legal moves, rule edge cases, deterministic selection, and that each Hard strategy wins at least 16 of 20 seeded games against the Easy pool while losing no more than two. The strength benchmark plays 60 full games and takes longer than the unit tests.
+The default test suite checks legal moves, rule edge cases, and deterministic selection. The slow strength test checks that each Hard strategy wins at least 16 of 20 seeded games against the Easy pool while losing no more than two; run it with `mvn -B test -Dgroups=slow`. It plays 60 full games and takes about 13 minutes.
 
 ## Project layout
 
