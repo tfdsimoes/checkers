@@ -34,7 +34,7 @@ final class MainMenuFrame extends JFrame {
         fields.add(mode);
         fields.add(new JLabel("Difficulty"));
         fields.add(difficulty);
-        fields.add(new JLabel("First player / human colour"));
+        fields.add(new JLabel("Your colour (PVM)"));
         fields.add(firstPlayerSide);
         fields.add(new JLabel("Random seed (optional)"));
         fields.add(seed);

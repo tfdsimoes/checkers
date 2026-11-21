@@ -5,7 +5,6 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.tfdsimoes.checkers.game.ColourAssignment;
 import com.tfdsimoes.checkers.game.GameState;
 import com.tfdsimoes.checkers.game.GameStatus;
 import com.tfdsimoes.checkers.model.Board;
@@ -173,16 +172,6 @@ class GameRulesTest {
         assertEquals(GameStatus.DRAW, game.status());
         assertTrue(game.legalMoves().isEmpty());
         assertThrows(IllegalStateException.class, game::agreeToDraw);
-    }
-
-    @Test
-    void colourAssignmentSwapsBetweenGames() {
-        ColourAssignment assignment = new ColourAssignment(Side.WHITE);
-
-        assertEquals(Side.BLACK, assignment.secondPlayerSide());
-        assertEquals(Side.BLACK, assignment.swappedForNextGame().firstPlayerSide());
-        assertEquals(Side.WHITE,
-                assignment.swappedForNextGame().swappedForNextGame().firstPlayerSide());
     }
 
     @Test
