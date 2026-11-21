@@ -51,6 +51,7 @@ final class GameSetupWindow extends JFrame {
     private boolean drawResponseReady;
     private boolean paused;
     private boolean returning;
+    private boolean started;
     private int aiTurnGeneration;
 
     GameSetupWindow(GameConfiguration configuration, Consumer<GameConfiguration> returnHandler) {
@@ -96,6 +97,13 @@ final class GameSetupWindow extends JFrame {
         pack();
         setLocationRelativeTo(null);
         refresh();
+    }
+
+    void start() {
+        if (started) {
+            throw new IllegalStateException("Game window has already started");
+        }
+        started = true;
         startAiTurn();
     }
 
@@ -190,7 +198,7 @@ final class GameSetupWindow extends JFrame {
 
     private void startAiTurn() {
         GameState game = setup.game();
-        if (!GameWindowPolicy.canStartAiTurn(
+        if (!started || !GameWindowPolicy.canStartAiTurn(
                 returning,
                 paused,
                 game.status(),

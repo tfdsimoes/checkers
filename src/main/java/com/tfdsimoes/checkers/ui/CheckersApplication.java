@@ -17,6 +17,7 @@ public final class CheckersApplication {
         menu.setVisible(false);
         GameSetupWindow gameWindow = new GameSetupWindow(configuration, this::returnToMenu);
         gameWindow.setVisible(true);
+        gameWindow.start();
     }
 
     private void returnToMenu(GameConfiguration configuration) {
