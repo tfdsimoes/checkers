@@ -38,6 +38,7 @@ public final class MinimaxStrategy implements AiStrategy {
         int bestScore = NEGATIVE_INFINITY;
         List<Move> bestMoves = new ArrayList<>();
         for (Move move : moves) {
+            SearchCancellation.checkInterrupted();
             GameState next = game.copy();
             next.makeMove(move);
             int score = search(next, depth - 1, perspective);
@@ -57,6 +58,7 @@ public final class MinimaxStrategy implements AiStrategy {
     }
 
     private int search(GameState game, int remainingDepth, Side perspective) {
+        SearchCancellation.checkInterrupted();
         if (remainingDepth == 0 || game.status() != com.tfdsimoes.checkers.game.GameStatus.IN_PROGRESS) {
             return evaluation.evaluate(game, perspective);
         }

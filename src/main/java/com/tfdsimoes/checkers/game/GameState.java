@@ -29,8 +29,13 @@ public final class GameState {
     }
 
     public GameState(Board board, Side currentPlayer) {
+        this(board, currentPlayer, 0);
+    }
+
+    GameState(Board board, Side currentPlayer, int noProgressPlies) {
         this(board.copy(), new ArrayList<>(), new HashMap<>(),
-                Objects.requireNonNull(currentPlayer, "currentPlayer"), GameStatus.IN_PROGRESS, 0);
+                Objects.requireNonNull(currentPlayer, "currentPlayer"), GameStatus.IN_PROGRESS,
+                validateNoProgressPlies(noProgressPlies));
         recordPosition();
     }
 
@@ -125,6 +130,24 @@ public final class GameState {
                 currentPlayer, status, noProgressPlies);
     }
 
+    public void restoreFrom(GameState snapshot) {
+        Objects.requireNonNull(snapshot, "snapshot");
+        if (snapshot == this) {
+            return;
+        }
+        for (int square = 1; square <= Board.PLAYABLE_SQUARES; square++) {
+            Position position = Position.fromSquareNumber(square);
+            board.setPiece(position, snapshot.board.pieceAt(position));
+        }
+        history.clear();
+        history.addAll(snapshot.history);
+        repetitions.clear();
+        repetitions.putAll(snapshot.repetitions);
+        currentPlayer = snapshot.currentPlayer;
+        status = snapshot.status;
+        noProgressPlies = snapshot.noProgressPlies;
+    }
+
     private void recordPosition() {
         repetitions.merge(positionKey(), 1, Integer::sum);
     }
@@ -146,5 +169,12 @@ public final class GameState {
         value = (value ^ (value >>> 30)) * 0xbf58476d1ce4e5b9L;
         value = (value ^ (value >>> 27)) * 0x94d049bb133111ebL;
         return value ^ (value >>> 31);
+    }
+
+    private static int validateNoProgressPlies(int noProgressPlies) {
+        if (noProgressPlies < 0 || noProgressPlies >= NO_PROGRESS_DRAW_PLIES) {
+            throw new IllegalArgumentException("Initial no-progress plies must be between 0 and 79");
+        }
+        return noProgressPlies;
     }
 }

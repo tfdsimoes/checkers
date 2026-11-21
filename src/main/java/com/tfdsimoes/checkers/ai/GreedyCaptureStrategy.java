@@ -25,6 +25,7 @@ public final class GreedyCaptureStrategy implements AiStrategy {
         int bestScore = Integer.MIN_VALUE;
         List<Move> bestMoves = new ArrayList<>();
         for (Move move : moves) {
+            SearchCancellation.checkInterrupted();
             GameState next = game.copy();
             next.makeMove(move);
             int score = evaluation.evaluate(next, game.currentPlayer());

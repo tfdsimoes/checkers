@@ -5,12 +5,15 @@ import com.tfdsimoes.checkers.game.GameSetup;
 import com.tfdsimoes.checkers.game.GameState;
 import com.tfdsimoes.checkers.game.GameStatus;
 import com.tfdsimoes.checkers.game.PlayerController;
+import com.tfdsimoes.checkers.game.UndoPolicy;
+import com.tfdsimoes.checkers.game.GameMode;
 import com.tfdsimoes.checkers.model.Move;
 import com.tfdsimoes.checkers.model.Piece;
 import com.tfdsimoes.checkers.model.Position;
 import com.tfdsimoes.checkers.model.Side;
 import java.awt.BorderLayout;
 import java.awt.FlowLayout;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
@@ -18,17 +21,25 @@ import java.util.function.Consumer;
 import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
+import javax.swing.DefaultListModel;
+import javax.swing.JList;
 import javax.swing.JPanel;
+import javax.swing.JScrollPane;
 import javax.swing.SwingConstants;
 import javax.swing.SwingWorker;
+import java.awt.Dimension;
 
 final class GameSetupWindow extends JFrame {
     private final GameSetup setup;
     private final Consumer<GameConfiguration> returnHandler;
     private final JLabel status = new JLabel(" ", SwingConstants.CENTER);
     private final JButton pauseButton = new JButton("Pause");
+    private final JButton undoButton = new JButton("Undo");
+    private final DefaultListModel<String> moveHistoryModel = new DefaultListModel<>();
+    private final JList<String> moveHistory = new JList<>(moveHistoryModel);
     private final GameBoardPanel boardPanel;
     private SwingWorker<Move, Void> aiWorker;
+    private final List<GameState> undoSnapshots = new ArrayList<>();
     private List<Move> selectedMoves = List.of();
     private Position selectedSource;
     private int selectedPathIndex;
@@ -52,12 +63,19 @@ final class GameSetupWindow extends JFrame {
         setLayout(new BorderLayout(8, 8));
         add(status, BorderLayout.NORTH);
         add(boardPanel, BorderLayout.CENTER);
+        moveHistory.setVisibleRowCount(20);
+        moveHistory.setFixedCellWidth(120);
+        JScrollPane historyScroll = new JScrollPane(moveHistory);
+        historyScroll.setPreferredSize(new Dimension(150, 0));
+        add(historyScroll, BorderLayout.EAST);
 
         JButton menuButton = new JButton("Menu");
         menuButton.addActionListener(event -> returnToMenu());
         pauseButton.addActionListener(event -> togglePause());
+        undoButton.addActionListener(event -> undo());
         JPanel controls = new JPanel(new FlowLayout(FlowLayout.CENTER));
         controls.add(pauseButton);
+        controls.add(undoButton);
         controls.add(menuButton);
         add(controls, BorderLayout.SOUTH);
 
@@ -96,7 +114,7 @@ final class GameSetupWindow extends JFrame {
         selectedMoves = nextCandidates;
         selectedPathIndex++;
         if (selectedMoves.stream().allMatch(move -> move.path().size() == selectedPathIndex + 1)) {
-            game.makeMove(selectedMoves.get(0));
+            makeMove(selectedMoves.get(0));
             clearSelection();
             refresh();
             startAiTurn();
@@ -147,6 +165,9 @@ final class GameSetupWindow extends JFrame {
         paused = !paused;
         pauseButton.setText(paused ? "Resume" : "Pause");
         aiTurnGeneration++;
+        if (paused && aiWorker != null) {
+            aiWorker.cancel(true);
+        }
         if (!paused) {
             startAiTurn();
         }
@@ -170,7 +191,9 @@ final class GameSetupWindow extends JFrame {
 
             @Override
             protected void done() {
-                aiWorker = null;
+                if (aiWorker == this) {
+                    aiWorker = null;
+                }
                 if (returning) {
                     return;
                 }
@@ -181,7 +204,7 @@ final class GameSetupWindow extends JFrame {
                     return;
                 }
                 try {
-                    game.makeMove(get());
+                    makeMove(get());
                     clearSelection();
                     refresh();
                     startAiTurn();
@@ -203,6 +226,7 @@ final class GameSetupWindow extends JFrame {
 
     private void refresh() {
         GameState game = setup.game();
+        refreshMoveHistory(game);
         String context = setup.configuration().mode() + " | seed " + setup.configuration().seed();
         if (game.status() == GameStatus.IN_PROGRESS) {
             Side side = game.currentPlayer();
@@ -222,12 +246,45 @@ final class GameSetupWindow extends JFrame {
             status.setText(context + " | " + result + algorithmSuffix());
         }
         pauseButton.setEnabled(game.status() == GameStatus.IN_PROGRESS);
+        undoButton.setEnabled(aiWorker == null
+                && UndoPolicy.movesToUndo(setup.configuration().mode(), undoSnapshots.size()) > 0);
         boardPanel.repaint();
+    }
+
+    private void makeMove(Move move) {
+        GameState game = setup.game();
+        undoSnapshots.add(game.copy());
+        game.makeMove(move);
+    }
+
+    private void undo() {
+        GameMode mode = setup.configuration().mode();
+        int moveCount = UndoPolicy.movesToUndo(mode, undoSnapshots.size());
+        if (moveCount == 0 || aiWorker != null) {
+            return;
+        }
+        GameState snapshot = undoSnapshots.get(undoSnapshots.size() - moveCount);
+        setup.game().restoreFrom(snapshot);
+        undoSnapshots.subList(undoSnapshots.size() - moveCount, undoSnapshots.size()).clear();
+        clearSelection();
+        refresh();
+        startAiTurn();
     }
 
     private String algorithmSuffix() {
         String names = setup.algorithmNames();
         return names.isEmpty() ? "" : " | " + names;
+    }
+
+    private void refreshMoveHistory(GameState game) {
+        moveHistoryModel.clear();
+        List<Move> history = game.history();
+        for (int index = 0; index < history.size(); index++) {
+            moveHistoryModel.addElement((index + 1) + ". " + history.get(index).notation());
+        }
+        if (!history.isEmpty()) {
+            moveHistory.setSelectedIndex(history.size() - 1);
+        }
     }
 
     private void returnToMenu() {
@@ -236,6 +293,9 @@ final class GameSetupWindow extends JFrame {
         }
         returning = true;
         aiTurnGeneration++;
+        if (aiWorker != null) {
+            aiWorker.cancel(true);
+        }
         GameConfiguration nextConfiguration = setup.game().status() == GameStatus.IN_PROGRESS
                 ? setup.configuration()
                 : setup.configuration().nextGame();

@@ -39,6 +39,7 @@ public final class AlphaBetaStrategy implements AiStrategy {
         int bestScore = NEGATIVE_INFINITY;
         List<Move> bestMoves = new ArrayList<>();
         for (Move move : moves) {
+            SearchCancellation.checkInterrupted();
             GameState next = game.copy();
             next.makeMove(move);
             int score = search(next, depth - 1, perspective, NEGATIVE_INFINITY, POSITIVE_INFINITY);
@@ -58,6 +59,7 @@ public final class AlphaBetaStrategy implements AiStrategy {
     }
 
     private int search(GameState game, int remainingDepth, Side perspective, int alpha, int beta) {
+        SearchCancellation.checkInterrupted();
         if (remainingDepth == 0 || game.status() != com.tfdsimoes.checkers.game.GameStatus.IN_PROGRESS) {
             return evaluation.evaluate(game, perspective);
         }

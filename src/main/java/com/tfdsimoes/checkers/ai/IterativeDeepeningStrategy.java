@@ -43,12 +43,14 @@ public final class IterativeDeepeningStrategy implements AiStrategy {
         SearchContext context = new SearchContext(maximumDepth);
         Move bestMove = legalMoves.get(0);
         for (int depth = 1; depth <= maximumDepth; depth++) {
+            SearchCancellation.checkInterrupted();
             int bestScore = NEGATIVE_INFINITY;
             List<Move> bestMoves = new ArrayList<>();
             TableEntry rootEntry = context.table.get(ZobristHasher.hash(game));
             Move tableMove = rootEntry == null ? null : rootEntry.bestMove;
             List<Move> moves = ordered(game.legalMoves(), tableMove, context.killers, 0);
             for (Move move : moves) {
+                SearchCancellation.checkInterrupted();
                 GameState next = game.copy();
                 next.makeMove(move);
                 int score = -search(next, depth - 1, -POSITIVE_INFINITY, POSITIVE_INFINITY, 1, context);
@@ -72,6 +74,7 @@ public final class IterativeDeepeningStrategy implements AiStrategy {
             int beta,
             int ply,
             SearchContext context) {
+        SearchCancellation.checkInterrupted();
         if (game.status() != GameStatus.IN_PROGRESS) {
             return evaluation.evaluate(game, game.currentPlayer());
         }

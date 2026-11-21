@@ -14,6 +14,7 @@ public final class RandomStrategy implements AiStrategy {
 
     @Override
     public Move chooseMove(GameState game, RandomGenerator random) {
+        SearchCancellation.checkInterrupted();
         Objects.requireNonNull(random, "random");
         List<Move> moves = game.legalMoves();
         if (moves.isEmpty()) {
