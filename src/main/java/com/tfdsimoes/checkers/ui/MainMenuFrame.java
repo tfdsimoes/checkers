@@ -4,15 +4,11 @@ import com.tfdsimoes.checkers.ai.Difficulty;
 import com.tfdsimoes.checkers.game.GameConfiguration;
 import com.tfdsimoes.checkers.game.GameMode;
 import com.tfdsimoes.checkers.model.Side;
-import java.awt.BasicStroke;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Font;
-import java.awt.Graphics;
-import java.awt.Graphics2D;
 import java.awt.GridLayout;
-import java.awt.RenderingHints;
 import java.util.EnumMap;
 import java.util.Map;
 import java.util.SplittableRandom;
@@ -117,7 +113,7 @@ final class MainMenuFrame extends JFrame {
         JPanel choices = new JPanel(new GridLayout(1, Side.values().length, 8, 0));
         for (Side side : Side.values()) {
             String label = side == Side.BLACK ? "Black" : "White";
-            JToggleButton button = choiceButton(label, new PieceChoiceIcon(side));
+            JToggleButton button = choiceButton(label, new PieceTokenIcon(side));
             button.setHorizontalTextPosition(SwingConstants.RIGHT);
             button.setIconTextGap(10);
             colourButtons.put(side, button);
@@ -231,37 +227,4 @@ final class MainMenuFrame extends JFrame {
                 .orElseThrow(() -> new IllegalStateException("A menu choice must be selected"));
     }
 
-    private static final class PieceChoiceIcon implements Icon {
-        private final Side side;
-
-        private PieceChoiceIcon(Side side) {
-            this.side = side;
-        }
-
-        @Override
-        public int getIconWidth() {
-            return 26;
-        }
-
-        @Override
-        public int getIconHeight() {
-            return 26;
-        }
-
-        @Override
-        public void paintIcon(java.awt.Component component, Graphics graphics, int x, int y) {
-            Graphics2D g = (Graphics2D) graphics.create();
-            g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            Color fill = side == Side.BLACK ? new Color(47, 42, 37) : new Color(244, 238, 224);
-            Color edge = side == Side.BLACK ? new Color(24, 21, 19) : new Color(133, 119, 97);
-            g.setColor(fill);
-            g.fillOval(x + 2, y + 3, 22, 20);
-            g.setColor(edge);
-            g.setStroke(new BasicStroke(1.5f));
-            g.drawOval(x + 2, y + 3, 22, 20);
-            g.setColor(side == Side.BLACK ? new Color(111, 101, 90) : Color.WHITE);
-            g.drawArc(x + 5, y + 5, 16, 7, 10, 160);
-            g.dispose();
-        }
-    }
 }
