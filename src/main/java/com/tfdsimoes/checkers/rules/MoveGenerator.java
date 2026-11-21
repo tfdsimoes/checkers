@@ -63,14 +63,14 @@ public final class MoveGenerator {
                     continue;
                 }
                 Piece target = board.pieceAt(jumped);
-                if (target == null || target.side() == piece.side() || board.pieceAt(landing) != null) {
+                if (target == null || target.side() == piece.side() || captured.contains(jumped)
+                        || board.pieceAt(landing) != null) {
                     continue;
                 }
 
                 foundContinuation = true;
                 Board nextBoard = board.copy();
                 nextBoard.setPiece(from, null);
-                nextBoard.setPiece(jumped, null);
                 Piece movedPiece = promotedPiece(piece, landing);
                 nextBoard.setPiece(landing, movedPiece);
                 List<Position> nextPath = new ArrayList<>(path);

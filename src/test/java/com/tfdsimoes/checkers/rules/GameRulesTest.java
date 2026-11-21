@@ -54,6 +54,18 @@ class GameRulesTest {
     }
 
     @Test
+    void multiJumpCannotCaptureTheSamePieceTwice() {
+        Board board = new Board();
+        board.setPiece(square(18), new Piece(Side.BLACK, true));
+        board.setPiece(square(14), new Piece(Side.WHITE, false));
+
+        List<Move> moves = MoveGenerator.legalMoves(board, Side.BLACK);
+
+        assertEquals(List.of("18x9"), moves.stream().map(Move::notation).toList());
+        assertEquals(List.of(square(14)), moves.get(0).captures());
+    }
+
+    @Test
     void promotionDuringCaptureEndsTheCaptureChain() {
         Board board = new Board();
         board.setPiece(square(21), new Piece(Side.BLACK, false));
