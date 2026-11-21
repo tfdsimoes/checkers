@@ -37,6 +37,7 @@ public final class MctsStrategy implements AiStrategy {
         Node root = new Node(game.copy(), null, null);
 
         for (int iteration = 0; iteration < iterations; iteration++) {
+            SearchCancellation.checkInterrupted();
             Node node = root;
             while (!node.isTerminal() && node.isFullyExpanded() && !node.children.isEmpty()) {
                 node = selectChild(node, rootSide, random);
@@ -87,6 +88,7 @@ public final class MctsStrategy implements AiStrategy {
 
     private static double rollout(GameState game, Side rootSide, RandomGenerator random) {
         while (game.status() == GameStatus.IN_PROGRESS) {
+            SearchCancellation.checkInterrupted();
             List<Move> moves = game.legalMoves();
             if (moves.isEmpty()) {
                 break;

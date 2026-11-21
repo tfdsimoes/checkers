@@ -2,6 +2,7 @@ package com.tfdsimoes.checkers.ai;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.tfdsimoes.checkers.game.GameState;
 import com.tfdsimoes.checkers.model.Board;
@@ -10,6 +11,7 @@ import com.tfdsimoes.checkers.model.Piece;
 import com.tfdsimoes.checkers.model.Position;
 import com.tfdsimoes.checkers.model.Side;
 import java.util.SplittableRandom;
+import java.util.concurrent.CancellationException;
 import org.junit.jupiter.api.Test;
 
 class AdvancedStrategiesTest {
@@ -52,6 +54,17 @@ class AdvancedStrategiesTest {
         Move second = strategy.chooseMove(game, new SplittableRandom(1234));
 
         assertEquals(first, second);
+    }
+
+    @Test
+    void aiSearchStopsWhenItsWorkerIsInterrupted() {
+        Thread.currentThread().interrupt();
+        try {
+            assertThrows(CancellationException.class,
+                    () -> new MctsStrategy(5_000).chooseMove(kingsPosition(), new SplittableRandom(7)));
+        } finally {
+            Thread.interrupted();
+        }
     }
 
     private static void assertLegalMove(AiStrategy strategy, GameState game, long seed) {

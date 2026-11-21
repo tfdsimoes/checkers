@@ -44,6 +44,7 @@ public final class QuiescenceStrategy implements AiStrategy {
         int bestScore = NEGATIVE_INFINITY;
         List<Move> bestMoves = new ArrayList<>();
         for (Move move : moves) {
+            SearchCancellation.checkInterrupted();
             GameState next = game.copy();
             next.makeMove(move);
             int score = -search(next, depth - 1, NEGATIVE_INFINITY, POSITIVE_INFINITY, quiescenceNodes);
@@ -59,6 +60,7 @@ public final class QuiescenceStrategy implements AiStrategy {
     }
 
     private int search(GameState game, int depth, int alpha, int beta, int[] quiescenceNodes) {
+        SearchCancellation.checkInterrupted();
         if (game.status() != GameStatus.IN_PROGRESS) {
             return evaluation.evaluate(game, game.currentPlayer());
         }
@@ -84,6 +86,7 @@ public final class QuiescenceStrategy implements AiStrategy {
     }
 
     private int quiescence(GameState game, int alpha, int beta, int[] nodes) {
+        SearchCancellation.checkInterrupted();
         if (game.status() != GameStatus.IN_PROGRESS) {
             return evaluation.evaluate(game, game.currentPlayer());
         }
