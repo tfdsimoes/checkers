@@ -7,8 +7,10 @@ import com.tfdsimoes.checkers.game.GameStatus;
 import com.tfdsimoes.checkers.model.Move;
 import com.tfdsimoes.checkers.model.Side;
 import java.util.SplittableRandom;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
+@Tag("slow")
 class StrategyStrengthTest {
     private static final int GAMES_PER_STRATEGY = 20;
     private static final int MINIMUM_WINS = 16;
