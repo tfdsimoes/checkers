@@ -17,11 +17,11 @@ public final class AlgorithmRegistry {
                 Difficulty.MEDIUM, List.of(
                         new AlphaBetaStrategy(4),
                         new AlphaBetaStrategy(6),
-                        new MinimaxStrategy(6)),
+                        new MctsStrategy(1_000)),
                 Difficulty.HARD, List.of(
-                        new AlphaBetaStrategy(6),
-                        new AlphaBetaStrategy(7),
-                        new AlphaBetaStrategy(8)));
+                        new IterativeDeepeningStrategy(8),
+                        new QuiescenceStrategy(6, 10_000),
+                        new MctsStrategy(5_000)));
     }
 
     public List<AiStrategy> strategies(Difficulty difficulty) {
