@@ -1,6 +1,7 @@
 package com.tfdsimoes.checkers.ui;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import com.tfdsimoes.checkers.game.GameState;
 import com.tfdsimoes.checkers.model.Board;
 import com.tfdsimoes.checkers.model.Position;
