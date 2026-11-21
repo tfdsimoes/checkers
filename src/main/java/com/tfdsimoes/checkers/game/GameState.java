@@ -37,6 +37,10 @@ public final class GameState {
                 Objects.requireNonNull(currentPlayer, "currentPlayer"), GameStatus.IN_PROGRESS,
                 validateNoProgressPlies(noProgressPlies));
         recordPosition();
+        if (this.board.pieceCount(this.currentPlayer) == 0
+                || MoveGenerator.legalMoves(this.board, this.currentPlayer).isEmpty()) {
+            this.status = this.currentPlayer == Side.BLACK ? GameStatus.WHITE_WON : GameStatus.BLACK_WON;
+        }
     }
 
     private GameState(
@@ -127,6 +131,11 @@ public final class GameState {
 
     public GameState copy() {
         return new GameState(board.copy(), new ArrayList<>(history), new HashMap<>(repetitions),
+                currentPlayer, status, noProgressPlies);
+    }
+
+    public GameState searchCopy() {
+        return new GameState(board.copy(), new ArrayList<>(), new HashMap<>(repetitions),
                 currentPlayer, status, noProgressPlies);
     }
 

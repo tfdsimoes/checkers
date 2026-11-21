@@ -4,6 +4,7 @@ import com.tfdsimoes.checkers.game.GameState;
 import com.tfdsimoes.checkers.model.Board;
 import com.tfdsimoes.checkers.model.Piece;
 import com.tfdsimoes.checkers.model.Position;
+import com.tfdsimoes.checkers.model.Side;
 import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Dimension;
@@ -91,11 +92,11 @@ final class GameBoardPanel extends JPanel {
             return;
         }
         int margin = cell / 8;
-        graphics.setColor(piece.side() == com.tfdsimoes.checkers.model.Side.BLACK
+        graphics.setColor(piece.side() == Side.BLACK
                 ? new Color(40, 40, 40)
                 : new Color(245, 245, 235));
         graphics.fillOval(x + margin, y + margin, cell - 2 * margin, cell - 2 * margin);
-        graphics.setColor(piece.side() == com.tfdsimoes.checkers.model.Side.BLACK
+        graphics.setColor(piece.side() == Side.BLACK
                 ? new Color(220, 220, 220)
                 : new Color(65, 65, 65));
         graphics.setStroke(new BasicStroke(Math.max(2, cell / 40)));

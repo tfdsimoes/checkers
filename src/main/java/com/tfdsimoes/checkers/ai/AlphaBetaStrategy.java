@@ -40,7 +40,7 @@ public final class AlphaBetaStrategy implements AiStrategy {
         List<Move> bestMoves = new ArrayList<>();
         for (Move move : moves) {
             SearchCancellation.checkInterrupted();
-            GameState next = game.copy();
+            GameState next = game.searchCopy();
             next.makeMove(move);
             int score = search(next, depth - 1, perspective, NEGATIVE_INFINITY, POSITIVE_INFINITY);
             if (score > bestScore) {
@@ -70,7 +70,7 @@ public final class AlphaBetaStrategy implements AiStrategy {
         boolean maximizing = game.currentPlayer() == perspective;
         int bestScore = maximizing ? NEGATIVE_INFINITY : POSITIVE_INFINITY;
         for (Move move : moves) {
-            GameState next = game.copy();
+            GameState next = game.searchCopy();
             next.makeMove(move);
             int score = search(next, remainingDepth - 1, perspective, alpha, beta);
             if (maximizing) {

@@ -21,12 +21,24 @@ class GameSetupTest {
     }
 
     @Test
-    void playerVersusMachineHonoursChosenHumanColour() {
-        GameSetup setup = GameSetup.create(configuration(GameMode.PLAYER_VS_MACHINE, Side.WHITE));
+    void playerVersusMachineHonoursEveryDifficultyAndHumanColour() {
+        AlgorithmRegistry registry = new AlgorithmRegistry();
+        for (Difficulty difficulty : Difficulty.values()) {
+            for (Side humanSide : Side.values()) {
+                GameConfiguration configuration =
+                        new GameConfiguration(GameMode.PLAYER_VS_MACHINE, difficulty, humanSide, 12345L);
+                GameSetup setup = GameSetup.create(configuration);
+                Side machineSide = humanSide.opposite();
+                Set<String> poolNames = registry.strategies(difficulty).stream()
+                        .map(strategy -> strategy.name())
+                        .collect(Collectors.toSet());
 
-        assertFalse(setup.controllerFor(Side.BLACK).isHuman());
-        assertTrue(setup.controllerFor(Side.WHITE).isHuman());
-        assertFalse(setup.controllerFor(Side.BLACK).displayName().isBlank());
+                assertTrue(setup.controllerFor(humanSide).isHuman());
+                assertFalse(setup.controllerFor(machineSide).isHuman());
+                assertTrue(poolNames.contains(setup.controllerFor(machineSide).displayName()));
+                assertEquals(Side.BLACK, setup.game().currentPlayer());
+            }
+        }
     }
 
     @Test

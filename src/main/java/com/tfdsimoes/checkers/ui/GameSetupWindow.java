@@ -1,33 +1,33 @@
 package com.tfdsimoes.checkers.ui;
 
 import com.tfdsimoes.checkers.game.GameConfiguration;
+import com.tfdsimoes.checkers.game.GameMode;
 import com.tfdsimoes.checkers.game.GameSetup;
 import com.tfdsimoes.checkers.game.GameState;
 import com.tfdsimoes.checkers.game.GameStatus;
 import com.tfdsimoes.checkers.game.PlayerController;
 import com.tfdsimoes.checkers.game.UndoPolicy;
-import com.tfdsimoes.checkers.game.GameMode;
 import com.tfdsimoes.checkers.model.Move;
 import com.tfdsimoes.checkers.model.Piece;
 import com.tfdsimoes.checkers.model.Position;
 import com.tfdsimoes.checkers.model.Side;
 import java.awt.BorderLayout;
+import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Consumer;
+import javax.swing.DefaultListModel;
 import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
-import javax.swing.DefaultListModel;
 import javax.swing.JList;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.SwingConstants;
 import javax.swing.SwingWorker;
-import java.awt.Dimension;
 
 final class GameSetupWindow extends JFrame {
     private final GameSetup setup;
@@ -35,6 +35,9 @@ final class GameSetupWindow extends JFrame {
     private final JLabel status = new JLabel(" ", SwingConstants.CENTER);
     private final JButton pauseButton = new JButton("Pause");
     private final JButton undoButton = new JButton("Undo");
+    private final JButton offerDrawButton = new JButton("Offer draw");
+    private final JButton agreeDrawButton = new JButton("Agree to draw");
+    private final JButton declineDrawButton = new JButton("Decline");
     private final DefaultListModel<String> moveHistoryModel = new DefaultListModel<>();
     private final JList<String> moveHistory = new JList<>(moveHistoryModel);
     private final GameBoardPanel boardPanel;
@@ -43,6 +46,7 @@ final class GameSetupWindow extends JFrame {
     private List<Move> selectedMoves = List.of();
     private Position selectedSource;
     private int selectedPathIndex;
+    private Side drawOfferBy;
     private boolean paused;
     private boolean returning;
     private int aiTurnGeneration;
@@ -73,9 +77,15 @@ final class GameSetupWindow extends JFrame {
         menuButton.addActionListener(event -> returnToMenu());
         pauseButton.addActionListener(event -> togglePause());
         undoButton.addActionListener(event -> undo());
+        offerDrawButton.addActionListener(event -> offerDraw());
+        agreeDrawButton.addActionListener(event -> agreeToDraw());
+        declineDrawButton.addActionListener(event -> declineDraw());
         JPanel controls = new JPanel(new FlowLayout(FlowLayout.CENTER));
         controls.add(pauseButton);
         controls.add(undoButton);
+        controls.add(offerDrawButton);
+        controls.add(agreeDrawButton);
+        controls.add(declineDrawButton);
         controls.add(menuButton);
         add(controls, BorderLayout.SOUTH);
 
@@ -87,7 +97,7 @@ final class GameSetupWindow extends JFrame {
 
     private void handleBoardClick(Position position) {
         GameState game = setup.game();
-        if (paused || game.status() != GameStatus.IN_PROGRESS
+        if (paused || drawOfferBy != null || game.status() != GameStatus.IN_PROGRESS
                 || !setup.controllerFor(game.currentPlayer()).isHuman() || aiWorker != null) {
             return;
         }
@@ -248,13 +258,45 @@ final class GameSetupWindow extends JFrame {
         pauseButton.setEnabled(game.status() == GameStatus.IN_PROGRESS);
         undoButton.setEnabled(aiWorker == null
                 && UndoPolicy.movesToUndo(setup.configuration().mode(), undoSnapshots.size()) > 0);
+        boolean canAgreeDraw = game.status() == GameStatus.IN_PROGRESS
+                && setup.configuration().mode() == GameMode.PLAYER_VS_PLAYER
+                && drawOfferBy != null;
+        offerDrawButton.setEnabled(game.status() == GameStatus.IN_PROGRESS
+                && setup.configuration().mode() == GameMode.PLAYER_VS_PLAYER
+                && drawOfferBy == null);
+        agreeDrawButton.setEnabled(canAgreeDraw);
+        declineDrawButton.setEnabled(canAgreeDraw);
         boardPanel.repaint();
+    }
+
+    private void offerDraw() {
+        if (setup.game().status() != GameStatus.IN_PROGRESS || drawOfferBy != null) {
+            return;
+        }
+        drawOfferBy = setup.game().currentPlayer();
+        refresh();
+        status.setText(drawOfferBy + " offers a draw. The other player can agree or decline.");
+    }
+
+    private void agreeToDraw() {
+        if (drawOfferBy == null) {
+            return;
+        }
+        setup.game().agreeToDraw();
+        drawOfferBy = null;
+        refresh();
+    }
+
+    private void declineDraw() {
+        drawOfferBy = null;
+        refresh();
     }
 
     private void makeMove(Move move) {
         GameState game = setup.game();
         undoSnapshots.add(game.copy());
         game.makeMove(move);
+        drawOfferBy = null;
     }
 
     private void undo() {
@@ -266,6 +308,7 @@ final class GameSetupWindow extends JFrame {
         GameState snapshot = undoSnapshots.get(undoSnapshots.size() - moveCount);
         setup.game().restoreFrom(snapshot);
         undoSnapshots.subList(undoSnapshots.size() - moveCount, undoSnapshots.size()).clear();
+        drawOfferBy = null;
         clearSelection();
         refresh();
         startAiTurn();
