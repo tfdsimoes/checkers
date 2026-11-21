@@ -47,7 +47,7 @@ public final class QuiescenceStrategy implements AiStrategy {
             SearchCancellation.checkInterrupted();
             GameState next = game.searchCopy();
             next.makeMove(move);
-            int score = -search(next, depth - 1, NEGATIVE_INFINITY, POSITIVE_INFINITY, quiescenceNodes);
+            int score = -search(next, depth - 1, NEGATIVE_INFINITY, POSITIVE_INFINITY, 1, quiescenceNodes);
             if (score > bestScore) {
                 bestScore = score;
                 bestMoves.clear();
@@ -59,23 +59,23 @@ public final class QuiescenceStrategy implements AiStrategy {
         return bestMoves.get(random.nextInt(bestMoves.size()));
     }
 
-    private int search(GameState game, int depth, int alpha, int beta, int[] quiescenceNodes) {
+    private int search(GameState game, int depth, int alpha, int beta, int ply, int[] quiescenceNodes) {
         SearchCancellation.checkInterrupted();
         if (game.status() != GameStatus.IN_PROGRESS) {
-            return evaluation.evaluate(game, game.currentPlayer());
+            return evaluation.evaluate(game, game.currentPlayer(), ply);
         }
         if (depth == 0) {
-            return quiescence(game, alpha, beta, quiescenceNodes);
+            return quiescence(game, alpha, beta, ply, quiescenceNodes);
         }
         List<Move> moves = ordered(game.legalMoves());
         if (moves.isEmpty()) {
-            return evaluation.evaluate(game, game.currentPlayer());
+            return evaluation.evaluate(game, game.currentPlayer(), ply);
         }
         int bestScore = NEGATIVE_INFINITY;
         for (Move move : moves) {
             GameState next = game.searchCopy();
             next.makeMove(move);
-            int score = -search(next, depth - 1, -beta, -alpha, quiescenceNodes);
+            int score = -search(next, depth - 1, -beta, -alpha, ply + 1, quiescenceNodes);
             bestScore = Math.max(bestScore, score);
             alpha = Math.max(alpha, bestScore);
             if (alpha >= beta) {
@@ -85,17 +85,17 @@ public final class QuiescenceStrategy implements AiStrategy {
         return bestScore;
     }
 
-    private int quiescence(GameState game, int alpha, int beta, int[] nodes) {
+    private int quiescence(GameState game, int alpha, int beta, int ply, int[] nodes) {
         SearchCancellation.checkInterrupted();
         if (game.status() != GameStatus.IN_PROGRESS) {
-            return evaluation.evaluate(game, game.currentPlayer());
+            return evaluation.evaluate(game, game.currentPlayer(), ply);
         }
         if (nodes[0] >= maximumQuiescenceNodes) {
-            return evaluation.evaluate(game, game.currentPlayer());
+            return evaluation.evaluate(game, game.currentPlayer(), ply);
         }
         List<Move> moves = game.legalMoves();
         if (moves.isEmpty() || moves.stream().noneMatch(Move::isCapture)) {
-            return evaluation.evaluate(game, game.currentPlayer());
+            return evaluation.evaluate(game, game.currentPlayer(), ply);
         }
         int bestScore = NEGATIVE_INFINITY;
         for (Move move : ordered(moves)) {
@@ -105,14 +105,16 @@ public final class QuiescenceStrategy implements AiStrategy {
             nodes[0]++;
             GameState next = game.searchCopy();
             next.makeMove(move);
-            int score = -quiescence(next, -beta, -alpha, nodes);
+            int score = -quiescence(next, -beta, -alpha, ply + 1, nodes);
             bestScore = Math.max(bestScore, score);
             alpha = Math.max(alpha, bestScore);
             if (alpha >= beta || nodes[0] >= maximumQuiescenceNodes) {
                 break;
             }
         }
-        return bestScore == NEGATIVE_INFINITY ? evaluation.evaluate(game, game.currentPlayer()) : bestScore;
+        return bestScore == NEGATIVE_INFINITY
+                ? evaluation.evaluate(game, game.currentPlayer(), ply)
+                : bestScore;
     }
 
     private static List<Move> ordered(List<Move> moves) {

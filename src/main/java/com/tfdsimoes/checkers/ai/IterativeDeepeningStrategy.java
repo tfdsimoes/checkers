@@ -76,10 +76,10 @@ public final class IterativeDeepeningStrategy implements AiStrategy {
             SearchContext context) {
         SearchCancellation.checkInterrupted();
         if (game.status() != GameStatus.IN_PROGRESS) {
-            return evaluation.evaluate(game, game.currentPlayer());
+            return evaluation.evaluate(game, game.currentPlayer(), ply);
         }
         if (depth == 0) {
-            return evaluation.evaluate(game, game.currentPlayer());
+            return evaluation.evaluate(game, game.currentPlayer(), ply);
         }
 
         int originalAlpha = alpha;
@@ -90,23 +90,24 @@ public final class IterativeDeepeningStrategy implements AiStrategy {
         if (entry != null) {
             tableMove = entry.bestMove;
             if (entry.depth >= depth) {
+                int entryScore = scoreFromTable(entry.score, ply);
                 if (entry.bound == Bound.EXACT) {
-                    return entry.score;
+                    return entryScore;
                 }
                 if (entry.bound == Bound.LOWER) {
-                    alpha = Math.max(alpha, entry.score);
+                    alpha = Math.max(alpha, entryScore);
                 } else {
-                    beta = Math.min(beta, entry.score);
+                    beta = Math.min(beta, entryScore);
                 }
                 if (beta <= alpha) {
-                    return entry.score;
+                    return entryScore;
                 }
             }
         }
 
         List<Move> moves = ordered(game.legalMoves(), tableMove, context.killers, ply);
         if (moves.isEmpty()) {
-            return evaluation.evaluate(game, game.currentPlayer());
+            return evaluation.evaluate(game, game.currentPlayer(), ply);
         }
         int bestScore = NEGATIVE_INFINITY;
         Move bestMove = null;
@@ -131,10 +132,30 @@ public final class IterativeDeepeningStrategy implements AiStrategy {
                     : bestScore >= originalBeta ? Bound.LOWER : Bound.EXACT;
             TableEntry previous = context.table.get(hash);
             if (previous == null || previous.depth <= depth) {
-                context.table.put(hash, new TableEntry(depth, bestScore, bound, bestMove));
+                context.table.put(hash, new TableEntry(depth, scoreToTable(bestScore, ply), bound, bestMove));
             }
         }
         return bestScore;
+    }
+
+    private static int scoreToTable(int score, int ply) {
+        if (score > EvaluationFunction.WIN_SCORE / 2) {
+            return score + ply;
+        }
+        if (score < -EvaluationFunction.WIN_SCORE / 2) {
+            return score - ply;
+        }
+        return score;
+    }
+
+    private static int scoreFromTable(int score, int ply) {
+        if (score > EvaluationFunction.WIN_SCORE / 2) {
+            return score - ply;
+        }
+        if (score < -EvaluationFunction.WIN_SCORE / 2) {
+            return score + ply;
+        }
+        return score;
     }
 
     private static List<Move> ordered(List<Move> moves, Move tableMove, Move[][] killers, int ply) {
