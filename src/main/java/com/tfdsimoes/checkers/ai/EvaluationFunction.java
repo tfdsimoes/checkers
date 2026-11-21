@@ -31,11 +31,10 @@ public final class EvaluationFunction {
             return winner == perspective ? score : -score;
         }
 
-        Board board = game.board();
         int score = 0;
         for (int square = 1; square <= Board.PLAYABLE_SQUARES; square++) {
             Position position = Position.fromSquareNumber(square);
-            Piece piece = board.pieceAt(position);
+            Piece piece = game.pieceAt(position);
             if (piece == null) {
                 continue;
             }
@@ -58,7 +57,7 @@ public final class EvaluationFunction {
             score += piece.side() == Side.BLACK ? pieceScore : -pieceScore;
         }
 
-        score += (game.legalMovesFor(Side.BLACK) - game.legalMovesFor(Side.WHITE)) * 2;
+        score += game.mobilityDifference() * 2;
         return perspective == Side.BLACK ? score : -score;
     }
 }

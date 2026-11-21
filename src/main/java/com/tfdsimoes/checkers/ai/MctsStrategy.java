@@ -46,7 +46,7 @@ public final class MctsStrategy implements AiStrategy {
                 int index = random.nextInt(node.unexpandedMoves.size());
                 Move move = node.unexpandedMoves.remove(index);
                 GameState childState = node.state.searchCopy();
-                childState.makeMove(move);
+                childState.makeGeneratedMove(move);
                 Node child = new Node(childState, node, move);
                 node.children.add(child);
                 node = child;
@@ -93,7 +93,7 @@ public final class MctsStrategy implements AiStrategy {
             if (moves.isEmpty()) {
                 return noMovesOutcome(game.currentPlayer(), rootSide);
             }
-            game.makeMove(moves.get(random.nextInt(moves.size())));
+            game.makeGeneratedMove(moves.get(random.nextInt(moves.size())));
         }
         if (game.status() == GameStatus.DRAW) {
             return 0.5;

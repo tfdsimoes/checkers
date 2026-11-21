@@ -1,13 +1,13 @@
-package com.tfdsimoes.checkers.ai;
+package com.tfdsimoes.checkers.game;
 
-import com.tfdsimoes.checkers.game.GameState;
 import com.tfdsimoes.checkers.model.Board;
 import com.tfdsimoes.checkers.model.Piece;
 import com.tfdsimoes.checkers.model.Position;
 import com.tfdsimoes.checkers.model.Side;
+import java.util.Objects;
 import java.util.SplittableRandom;
 
-final class ZobristHasher {
+public final class ZobristHasher {
     private static final long[][] PIECE_KEYS = new long[Board.PLAYABLE_SQUARES][4];
     private static final long SIDE_TO_MOVE_KEY;
 
@@ -24,9 +24,14 @@ final class ZobristHasher {
     private ZobristHasher() {
     }
 
-    static long hash(GameState game) {
-        Board board = game.board();
-        long hash = game.currentPlayer() == Side.WHITE ? SIDE_TO_MOVE_KEY : 0L;
+    public static long hash(GameState game) {
+        Objects.requireNonNull(game, "game");
+        long hash = positionHash(game.boardForHash(), game.currentPlayer());
+        return hash ^ mix64(game.drawContextHash());
+    }
+
+    static long positionHash(Board board, Side side) {
+        long hash = side == Side.WHITE ? SIDE_TO_MOVE_KEY : 0L;
         for (int square = 1; square <= Board.PLAYABLE_SQUARES; square++) {
             Piece piece = board.pieceAt(Position.fromSquareNumber(square));
             if (piece == null) {
@@ -35,7 +40,7 @@ final class ZobristHasher {
             int pieceIndex = (piece.side() == Side.BLACK ? 0 : 2) + (piece.king() ? 1 : 0);
             hash ^= PIECE_KEYS[square - 1][pieceIndex];
         }
-        return hash ^ mix64(game.drawContextHash());
+        return hash;
     }
 
     private static long mix64(long value) {
