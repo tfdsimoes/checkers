@@ -57,6 +57,12 @@ class AdvancedStrategiesTest {
     }
 
     @Test
+    void mctsTreatsTheSideWithoutMovesAsTheLoser() {
+        assertEquals(0.0, MctsStrategy.noMovesOutcome(Side.BLACK, Side.BLACK));
+        assertEquals(1.0, MctsStrategy.noMovesOutcome(Side.BLACK, Side.WHITE));
+    }
+
+    @Test
     void aiSearchStopsWhenItsWorkerIsInterrupted() {
         Thread.currentThread().interrupt();
         try {

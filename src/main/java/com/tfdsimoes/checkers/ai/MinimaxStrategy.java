@@ -41,7 +41,7 @@ public final class MinimaxStrategy implements AiStrategy {
             SearchCancellation.checkInterrupted();
             GameState next = game.searchCopy();
             next.makeMove(move);
-            int score = search(next, depth - 1, perspective);
+            int score = search(next, depth - 1, perspective, 1);
             if (score > bestScore) {
                 bestScore = score;
                 bestMoves.clear();
@@ -54,24 +54,24 @@ public final class MinimaxStrategy implements AiStrategy {
     }
 
     int scorePosition(GameState game, Side perspective) {
-        return search(game, depth, perspective);
+        return search(game, depth, perspective, 0);
     }
 
-    private int search(GameState game, int remainingDepth, Side perspective) {
+    private int search(GameState game, int remainingDepth, Side perspective, int ply) {
         SearchCancellation.checkInterrupted();
         if (remainingDepth == 0 || game.status() != com.tfdsimoes.checkers.game.GameStatus.IN_PROGRESS) {
-            return evaluation.evaluate(game, perspective);
+            return evaluation.evaluate(game, perspective, ply);
         }
         List<Move> moves = game.legalMoves();
         if (moves.isEmpty()) {
-            return evaluation.evaluate(game, perspective);
+            return evaluation.evaluate(game, perspective, ply);
         }
         boolean maximizing = game.currentPlayer() == perspective;
         int bestScore = maximizing ? NEGATIVE_INFINITY : POSITIVE_INFINITY;
         for (Move move : moves) {
             GameState next = game.searchCopy();
             next.makeMove(move);
-            int score = search(next, remainingDepth - 1, perspective);
+            int score = search(next, remainingDepth - 1, perspective, ply + 1);
             bestScore = maximizing ? Math.max(bestScore, score) : Math.min(bestScore, score);
         }
         return bestScore;

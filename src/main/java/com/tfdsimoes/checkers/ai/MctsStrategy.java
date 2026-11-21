@@ -91,7 +91,7 @@ public final class MctsStrategy implements AiStrategy {
             SearchCancellation.checkInterrupted();
             List<Move> moves = game.legalMoves();
             if (moves.isEmpty()) {
-                break;
+                return noMovesOutcome(game.currentPlayer(), rootSide);
             }
             game.makeMove(moves.get(random.nextInt(moves.size())));
         }
@@ -100,6 +100,10 @@ public final class MctsStrategy implements AiStrategy {
         }
         Side winner = game.status() == GameStatus.BLACK_WON ? Side.BLACK : Side.WHITE;
         return winner == rootSide ? 1.0 : 0.0;
+    }
+
+    static double noMovesOutcome(Side sideToMove, Side rootSide) {
+        return sideToMove == rootSide ? 0.0 : 1.0;
     }
 
     private static final class Node {

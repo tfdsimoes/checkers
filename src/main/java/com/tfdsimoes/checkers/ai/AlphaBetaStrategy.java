@@ -42,7 +42,7 @@ public final class AlphaBetaStrategy implements AiStrategy {
             SearchCancellation.checkInterrupted();
             GameState next = game.searchCopy();
             next.makeMove(move);
-            int score = search(next, depth - 1, perspective, NEGATIVE_INFINITY, POSITIVE_INFINITY);
+            int score = search(next, depth - 1, perspective, NEGATIVE_INFINITY, POSITIVE_INFINITY, 1);
             if (score > bestScore) {
                 bestScore = score;
                 bestMoves.clear();
@@ -55,24 +55,25 @@ public final class AlphaBetaStrategy implements AiStrategy {
     }
 
     int scorePosition(GameState game, Side perspective) {
-        return search(game, depth, perspective, NEGATIVE_INFINITY, POSITIVE_INFINITY);
+        return search(game, depth, perspective, NEGATIVE_INFINITY, POSITIVE_INFINITY, 0);
     }
 
-    private int search(GameState game, int remainingDepth, Side perspective, int alpha, int beta) {
+    private int search(
+            GameState game, int remainingDepth, Side perspective, int alpha, int beta, int ply) {
         SearchCancellation.checkInterrupted();
         if (remainingDepth == 0 || game.status() != com.tfdsimoes.checkers.game.GameStatus.IN_PROGRESS) {
-            return evaluation.evaluate(game, perspective);
+            return evaluation.evaluate(game, perspective, ply);
         }
         List<Move> moves = ordered(game.legalMoves());
         if (moves.isEmpty()) {
-            return evaluation.evaluate(game, perspective);
+            return evaluation.evaluate(game, perspective, ply);
         }
         boolean maximizing = game.currentPlayer() == perspective;
         int bestScore = maximizing ? NEGATIVE_INFINITY : POSITIVE_INFINITY;
         for (Move move : moves) {
             GameState next = game.searchCopy();
             next.makeMove(move);
-            int score = search(next, remainingDepth - 1, perspective, alpha, beta);
+            int score = search(next, remainingDepth - 1, perspective, alpha, beta, ply + 1);
             if (maximizing) {
                 bestScore = Math.max(bestScore, score);
                 alpha = Math.max(alpha, bestScore);
