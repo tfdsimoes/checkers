@@ -22,6 +22,7 @@ final class MainMenuFrame extends JFrame {
     private final JComboBox<Side> firstPlayerSide = new JComboBox<>(Side.values());
     private final JTextField seed = new JTextField();
     private final JLabel message = new JLabel(" ", SwingConstants.CENTER);
+    private GameConfiguration returnedConfiguration;
 
     MainMenuFrame(Consumer<GameConfiguration> startGame) {
         super("Checkers");
@@ -54,6 +55,7 @@ final class MainMenuFrame extends JFrame {
     }
 
     void setConfiguration(GameConfiguration configuration) {
+        returnedConfiguration = configuration;
         mode.setSelectedItem(configuration.mode());
         difficulty.setSelectedItem(configuration.difficulty());
         firstPlayerSide.setSelectedItem(configuration.firstPlayerSide());
@@ -64,22 +66,45 @@ final class MainMenuFrame extends JFrame {
 
     private void start(Consumer<GameConfiguration> startGame) {
         try {
-            boolean randomSeed = seed.getText().isBlank();
-            long seedValue = randomSeed
-                    ? new SplittableRandom().nextLong()
-                    : Long.parseLong(seed.getText().trim());
             GameMode selectedMode = (GameMode) mode.getSelectedItem();
             Difficulty selectedDifficulty = (Difficulty) difficulty.getSelectedItem();
             Side selectedSide = (Side) firstPlayerSide.getSelectedItem();
-            GameConfiguration configuration = randomSeed
-                    ? GameConfiguration.withRandomSeed(selectedMode, selectedDifficulty, selectedSide, seedValue)
-                    : new GameConfiguration(selectedMode, selectedDifficulty, selectedSide, seedValue);
-            seed.setText(randomSeed ? "" : Long.toString(seedValue));
+            GameConfiguration configuration = returnedConfiguration != null
+                    && matchesCurrentSelection(returnedConfiguration, selectedMode, selectedDifficulty, selectedSide)
+                    ? returnedConfiguration
+                    : configurationFromSelection(selectedMode, selectedDifficulty, selectedSide);
+            returnedConfiguration = null;
+            seed.setText(configuration.randomSeed() ? "" : Long.toString(configuration.seed()));
             message.setText(" ");
             startGame.accept(configuration);
         } catch (NumberFormatException exception) {
             message.setText("Seed must be a whole number.");
         }
+    }
+
+    private boolean matchesCurrentSelection(
+            GameConfiguration configuration,
+            GameMode selectedMode,
+            Difficulty selectedDifficulty,
+            Side selectedSide) {
+        String enteredSeed = seed.getText().trim();
+        return configuration.mode() == selectedMode
+                && configuration.difficulty() == selectedDifficulty
+                && configuration.firstPlayerSide() == selectedSide
+                && (configuration.randomSeed()
+                        ? enteredSeed.isEmpty()
+                        : Long.toString(configuration.seed()).equals(enteredSeed));
+    }
+
+    private GameConfiguration configurationFromSelection(
+            GameMode selectedMode, Difficulty selectedDifficulty, Side selectedSide) {
+        boolean randomSeed = seed.getText().isBlank();
+        long seedValue = randomSeed
+                ? new SplittableRandom().nextLong()
+                : Long.parseLong(seed.getText().trim());
+        return randomSeed
+                ? GameConfiguration.withRandomSeed(selectedMode, selectedDifficulty, selectedSide, seedValue)
+                : new GameConfiguration(selectedMode, selectedDifficulty, selectedSide, seedValue);
     }
 
     private void updateFields() {
