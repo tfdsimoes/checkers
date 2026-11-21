@@ -12,20 +12,16 @@ import com.tfdsimoes.checkers.model.Piece;
 import com.tfdsimoes.checkers.model.Position;
 import com.tfdsimoes.checkers.model.Side;
 import java.awt.BorderLayout;
-import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Consumer;
-import javax.swing.DefaultListModel;
 import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
-import javax.swing.JList;
 import javax.swing.JPanel;
-import javax.swing.JScrollPane;
 import javax.swing.SwingConstants;
 import javax.swing.SwingWorker;
 
@@ -39,9 +35,8 @@ final class GameSetupWindow extends JFrame {
     private final JButton passDrawButton = new JButton();
     private final JButton agreeDrawButton = new JButton("Agree to draw");
     private final JButton declineDrawButton = new JButton("Decline");
-    private final DefaultListModel<String> moveHistoryModel = new DefaultListModel<>();
-    private final JList<String> moveHistory = new JList<>(moveHistoryModel);
     private final GameBoardPanel boardPanel;
+    private final GameSidebarPanel sidebarPanel = new GameSidebarPanel();
     private SwingWorker<Move, Void> aiWorker;
     private final List<GameState> undoSnapshots = new ArrayList<>();
     private List<Move> selectedMoves = List.of();
@@ -72,11 +67,7 @@ final class GameSetupWindow extends JFrame {
         setLayout(new BorderLayout(8, 8));
         add(status, BorderLayout.NORTH);
         add(boardPanel, BorderLayout.CENTER);
-        moveHistory.setVisibleRowCount(20);
-        moveHistory.setFixedCellWidth(120);
-        JScrollPane historyScroll = new JScrollPane(moveHistory);
-        historyScroll.setPreferredSize(new Dimension(150, 0));
-        add(historyScroll, BorderLayout.EAST);
+        add(sidebarPanel, BorderLayout.EAST);
 
         JButton menuButton = new JButton("Menu");
         menuButton.addActionListener(event -> returnToMenu());
@@ -254,7 +245,7 @@ final class GameSetupWindow extends JFrame {
 
     private void refresh() {
         GameState game = setup.game();
-        refreshMoveHistory(game);
+        sidebarPanel.update(game);
         String context = setup.configuration().mode() + " | seed " + setup.configuration().seed();
         if (game.status() == GameStatus.IN_PROGRESS) {
             Side side = game.currentPlayer();
@@ -376,17 +367,6 @@ final class GameSetupWindow extends JFrame {
     private String algorithmSuffix() {
         String names = setup.algorithmNames();
         return names.isEmpty() ? "" : " | " + names;
-    }
-
-    private void refreshMoveHistory(GameState game) {
-        moveHistoryModel.clear();
-        List<Move> history = game.history();
-        for (int index = 0; index < history.size(); index++) {
-            moveHistoryModel.addElement((index + 1) + ". " + history.get(index).notation());
-        }
-        if (!history.isEmpty()) {
-            moveHistory.setSelectedIndex(history.size() - 1);
-        }
     }
 
     private void returnToMenu() {
