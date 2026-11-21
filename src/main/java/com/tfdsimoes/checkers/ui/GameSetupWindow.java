@@ -36,6 +36,7 @@ final class GameSetupWindow extends JFrame {
     private final JButton pauseButton = new JButton("Pause");
     private final JButton undoButton = new JButton("Undo");
     private final JButton offerDrawButton = new JButton("Offer draw");
+    private final JButton passDrawButton = new JButton();
     private final JButton agreeDrawButton = new JButton("Agree to draw");
     private final JButton declineDrawButton = new JButton("Decline");
     private final DefaultListModel<String> moveHistoryModel = new DefaultListModel<>();
@@ -47,6 +48,7 @@ final class GameSetupWindow extends JFrame {
     private Position selectedSource;
     private int selectedPathIndex;
     private Side drawOfferBy;
+    private boolean drawResponseReady;
     private boolean paused;
     private boolean returning;
     private int aiTurnGeneration;
@@ -78,12 +80,14 @@ final class GameSetupWindow extends JFrame {
         pauseButton.addActionListener(event -> togglePause());
         undoButton.addActionListener(event -> undo());
         offerDrawButton.addActionListener(event -> offerDraw());
+        passDrawButton.addActionListener(event -> passDrawToOpponent());
         agreeDrawButton.addActionListener(event -> agreeToDraw());
         declineDrawButton.addActionListener(event -> declineDraw());
         JPanel controls = new JPanel(new FlowLayout(FlowLayout.CENTER));
         controls.add(pauseButton);
         controls.add(undoButton);
         controls.add(offerDrawButton);
+        controls.add(passDrawButton);
         controls.add(agreeDrawButton);
         controls.add(declineDrawButton);
         controls.add(menuButton);
@@ -186,8 +190,12 @@ final class GameSetupWindow extends JFrame {
 
     private void startAiTurn() {
         GameState game = setup.game();
-        if (returning || paused || game.status() != GameStatus.IN_PROGRESS || aiWorker != null
-                || setup.controllerFor(game.currentPlayer()).isHuman()) {
+        if (!GameWindowPolicy.canStartAiTurn(
+                returning,
+                paused,
+                game.status(),
+                aiWorker != null,
+                setup.controllerFor(game.currentPlayer()).isHuman())) {
             return;
         }
         PlayerController controller = setup.controllerFor(game.currentPlayer());
@@ -257,15 +265,28 @@ final class GameSetupWindow extends JFrame {
         }
         pauseButton.setEnabled(game.status() == GameStatus.IN_PROGRESS);
         undoButton.setEnabled(aiWorker == null
-                && UndoPolicy.movesToUndo(setup.configuration().mode(), undoSnapshots.size()) > 0);
-        boolean canAgreeDraw = game.status() == GameStatus.IN_PROGRESS
-                && setup.configuration().mode() == GameMode.PLAYER_VS_PLAYER
+                && UndoPolicy.movesToUndo(
+                        setup.configuration().mode(),
+                        undoSnapshots.size(),
+                        setup.configuration().firstPlayerSide()) > 0);
+        boolean drawResponseVisible = GameWindowPolicy.showDrawResponseButtons(
+                setup.configuration().mode(),
+                game.status(),
+                drawOfferBy != null,
+                drawResponseReady);
+        boolean drawOfferPending = setup.configuration().mode() == GameMode.PLAYER_VS_PLAYER
+                && game.status() == GameStatus.IN_PROGRESS
                 && drawOfferBy != null;
         offerDrawButton.setEnabled(game.status() == GameStatus.IN_PROGRESS
                 && setup.configuration().mode() == GameMode.PLAYER_VS_PLAYER
                 && drawOfferBy == null);
-        agreeDrawButton.setEnabled(canAgreeDraw);
-        declineDrawButton.setEnabled(canAgreeDraw);
+        passDrawButton.setText(drawOfferBy == null ? "Pass to opponent" : "Hand to " + drawOfferBy.opposite());
+        passDrawButton.setVisible(drawOfferPending && !drawResponseReady);
+        passDrawButton.setEnabled(drawOfferPending && !drawResponseReady);
+        agreeDrawButton.setVisible(drawResponseVisible);
+        declineDrawButton.setVisible(drawResponseVisible);
+        agreeDrawButton.setEnabled(drawResponseVisible);
+        declineDrawButton.setEnabled(drawResponseVisible);
         boardPanel.repaint();
     }
 
@@ -274,21 +295,43 @@ final class GameSetupWindow extends JFrame {
             return;
         }
         drawOfferBy = setup.game().currentPlayer();
+        drawResponseReady = false;
         refresh();
-        status.setText(drawOfferBy + " offers a draw. The other player can agree or decline.");
+        status.setText(drawOfferBy + " offers a draw. Hand the game to " + drawOfferBy.opposite() + ".");
+    }
+
+    private void passDrawToOpponent() {
+        if (drawOfferBy == null || !passDrawButton.isVisible()) {
+            return;
+        }
+        drawResponseReady = true;
+        refresh();
+        status.setText(drawOfferBy.opposite() + " can agree to or decline " + drawOfferBy + "'s draw offer.");
     }
 
     private void agreeToDraw() {
-        if (drawOfferBy == null) {
+        if (!GameWindowPolicy.showDrawResponseButtons(
+                setup.configuration().mode(),
+                setup.game().status(),
+                drawOfferBy != null,
+                drawResponseReady)) {
             return;
         }
         setup.game().agreeToDraw();
         drawOfferBy = null;
+        drawResponseReady = false;
         refresh();
     }
 
     private void declineDraw() {
-        drawOfferBy = null;
+        if (GameWindowPolicy.showDrawResponseButtons(
+                setup.configuration().mode(),
+                setup.game().status(),
+                drawOfferBy != null,
+                drawResponseReady)) {
+            drawOfferBy = null;
+            drawResponseReady = false;
+        }
         refresh();
     }
 
@@ -297,11 +340,13 @@ final class GameSetupWindow extends JFrame {
         undoSnapshots.add(game.copy());
         game.makeMove(move);
         drawOfferBy = null;
+        drawResponseReady = false;
     }
 
     private void undo() {
         GameMode mode = setup.configuration().mode();
-        int moveCount = UndoPolicy.movesToUndo(mode, undoSnapshots.size());
+        int moveCount = UndoPolicy.movesToUndo(mode, undoSnapshots.size(),
+                setup.configuration().firstPlayerSide());
         if (moveCount == 0 || aiWorker != null) {
             return;
         }

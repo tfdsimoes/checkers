@@ -54,13 +54,14 @@ class GameStateRestoreTest {
     }
 
     @Test
-    void undoPolicyRemovesOnePvPMoveAndOnePvmTurn() {
-        assertEquals(1, UndoPolicy.movesToUndo(GameMode.PLAYER_VS_PLAYER, 1));
-        assertEquals(2, UndoPolicy.movesToUndo(GameMode.PLAYER_VS_MACHINE, 3));
-        assertEquals(1, UndoPolicy.movesToUndo(GameMode.PLAYER_VS_MACHINE, 1));
-        assertEquals(0, UndoPolicy.movesToUndo(GameMode.MACHINE_VS_MACHINE, 4));
+    void undoPolicyCountsHumanPliesAndKeepsAiOpening() {
+        assertEquals(1, UndoPolicy.movesToUndo(GameMode.PLAYER_VS_PLAYER, 1, Side.BLACK));
+        assertEquals(2, UndoPolicy.movesToUndo(GameMode.PLAYER_VS_MACHINE, 4, Side.BLACK));
+        assertEquals(2, UndoPolicy.movesToUndo(GameMode.PLAYER_VS_MACHINE, 3, Side.WHITE));
+        assertEquals(0, UndoPolicy.movesToUndo(GameMode.PLAYER_VS_MACHINE, 1, Side.WHITE));
+        assertEquals(0, UndoPolicy.movesToUndo(GameMode.MACHINE_VS_MACHINE, 4, null));
         assertThrows(IllegalArgumentException.class,
-                () -> UndoPolicy.movesToUndo(GameMode.PLAYER_VS_PLAYER, -1));
+                () -> UndoPolicy.movesToUndo(GameMode.PLAYER_VS_PLAYER, -1, Side.BLACK));
     }
 
     @Test
