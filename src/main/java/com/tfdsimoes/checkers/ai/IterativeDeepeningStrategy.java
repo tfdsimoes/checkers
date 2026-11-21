@@ -2,6 +2,7 @@ package com.tfdsimoes.checkers.ai;
 
 import com.tfdsimoes.checkers.game.GameState;
 import com.tfdsimoes.checkers.game.GameStatus;
+import com.tfdsimoes.checkers.game.ZobristHasher;
 import com.tfdsimoes.checkers.model.Move;
 import com.tfdsimoes.checkers.model.Side;
 import java.util.ArrayList;
@@ -19,6 +20,7 @@ public final class IterativeDeepeningStrategy implements AiStrategy {
 
     private final int maximumDepth;
     private final EvaluationFunction evaluation = new EvaluationFunction();
+    private long lastNodesVisited;
 
     public IterativeDeepeningStrategy(int maximumDepth) {
         if (maximumDepth < 1) {
@@ -30,6 +32,10 @@ public final class IterativeDeepeningStrategy implements AiStrategy {
     @Override
     public String name() {
         return "Iterative deepening alpha-beta with transposition table (depth " + maximumDepth + ")";
+    }
+
+    long lastNodesVisited() {
+        return lastNodesVisited;
     }
 
     @Override
@@ -52,7 +58,7 @@ public final class IterativeDeepeningStrategy implements AiStrategy {
             for (Move move : moves) {
                 SearchCancellation.checkInterrupted();
                 GameState next = game.searchCopy();
-                next.makeMove(move);
+                next.makeGeneratedMove(move);
                 int score = -search(next, depth - 1, -POSITIVE_INFINITY, POSITIVE_INFINITY, 1, context);
                 if (score > bestScore) {
                     bestScore = score;
@@ -64,6 +70,7 @@ public final class IterativeDeepeningStrategy implements AiStrategy {
             }
             bestMove = bestMoves.get(random.nextInt(bestMoves.size()));
         }
+        lastNodesVisited = context.nodesVisited;
         return bestMove;
     }
 
@@ -75,6 +82,7 @@ public final class IterativeDeepeningStrategy implements AiStrategy {
             int ply,
             SearchContext context) {
         SearchCancellation.checkInterrupted();
+        context.nodesVisited++;
         if (game.status() != GameStatus.IN_PROGRESS) {
             return evaluation.evaluate(game, game.currentPlayer(), ply);
         }
@@ -113,7 +121,7 @@ public final class IterativeDeepeningStrategy implements AiStrategy {
         Move bestMove = null;
         for (Move move : moves) {
             GameState next = game.searchCopy();
-            next.makeMove(move);
+            next.makeGeneratedMove(move);
             int score = -search(next, depth - 1, -beta, -alpha, ply + 1, context);
             if (score > bestScore) {
                 bestScore = score;
@@ -202,6 +210,7 @@ public final class IterativeDeepeningStrategy implements AiStrategy {
     private static final class SearchContext {
         private final Map<Long, TableEntry> table = new HashMap<>();
         private final Move[][] killers;
+        private long nodesVisited;
 
         private SearchContext(int maximumDepth) {
             killers = new Move[maximumDepth + 1][2];

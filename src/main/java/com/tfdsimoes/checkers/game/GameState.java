@@ -12,14 +12,13 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.stream.Collectors;
 
 public final class GameState {
     public static final int NO_PROGRESS_DRAW_PLIES = 80;
 
     private final Board board;
     private final List<Move> history;
-    private final Map<String, Integer> repetitions;
+    private final Map<Long, Integer> repetitions;
     private Side currentPlayer;
     private GameStatus status;
     private int noProgressPlies;
@@ -46,7 +45,7 @@ public final class GameState {
     private GameState(
             Board board,
             List<Move> history,
-            Map<String, Integer> repetitions,
+            Map<Long, Integer> repetitions,
             Side currentPlayer,
             GameStatus status,
             int noProgressPlies) {
@@ -60,6 +59,18 @@ public final class GameState {
 
     public Board board() {
         return board.copy();
+    }
+
+    Board boardForHash() {
+        return board;
+    }
+
+    public Piece pieceAt(Position position) {
+        return board.pieceAt(Objects.requireNonNull(position, "position"));
+    }
+
+    public int mobilityDifference() {
+        return MoveGenerator.mobilityDifference(board);
     }
 
     public Side currentPlayer() {
@@ -76,8 +87,8 @@ public final class GameState {
 
     public long drawContextHash() {
         long hash = noProgressPlies;
-        for (Map.Entry<String, Integer> repetition : repetitions.entrySet()) {
-            long entry = ((long) repetition.getKey().hashCode() << 32) ^ repetition.getValue();
+        for (Map.Entry<Long, Integer> repetition : repetitions.entrySet()) {
+            long entry = repetition.getKey() ^ mix64(repetition.getValue());
             hash ^= mix64(entry);
         }
         return hash;
@@ -106,7 +117,19 @@ public final class GameState {
         if (!legalMoves().contains(move)) {
             throw new IllegalArgumentException("Move is not legal in the current position");
         }
+        applyGeneratedMove(move);
+    }
 
+    /** Applies a move already produced by {@link #legalMoves()} without regenerating legal moves. */
+    public void makeGeneratedMove(Move move) {
+        Objects.requireNonNull(move, "move");
+        if (status != GameStatus.IN_PROGRESS) {
+            throw new IllegalStateException("The game is already over");
+        }
+        applyGeneratedMove(move);
+    }
+
+    private void applyGeneratedMove(Move move) {
         Piece movingPiece = board.pieceAt(move.from());
         MoveApplier.apply(board, move);
         history.add(move);
@@ -117,7 +140,7 @@ public final class GameState {
 
         if (board.pieceCount(currentPlayer) == 0 || MoveGenerator.legalMoves(board, currentPlayer).isEmpty()) {
             status = mover == Side.BLACK ? GameStatus.BLACK_WON : GameStatus.WHITE_WON;
-        } else if (repetitions.get(positionKey()) >= 3 || noProgressPlies >= NO_PROGRESS_DRAW_PLIES) {
+        } else if (repetitions.get(positionHash()) >= 3 || noProgressPlies >= NO_PROGRESS_DRAW_PLIES) {
             status = GameStatus.DRAW;
         }
     }
@@ -158,20 +181,11 @@ public final class GameState {
     }
 
     private void recordPosition() {
-        repetitions.merge(positionKey(), 1, Integer::sum);
+        repetitions.merge(positionHash(), 1, Integer::sum);
     }
 
-    private String positionKey() {
-        String pieces = java.util.stream.IntStream.rangeClosed(1, Board.PLAYABLE_SQUARES)
-                .mapToObj(square -> {
-                    Piece piece = board.pieceAt(Position.fromSquareNumber(square));
-                    if (piece == null) {
-                        return "-";
-                    }
-                    return (piece.side() == Side.BLACK ? "b" : "w") + (piece.king() ? "k" : "m");
-                })
-                .collect(Collectors.joining());
-        return currentPlayer.name() + pieces;
+    private long positionHash() {
+        return ZobristHasher.positionHash(board, currentPlayer);
     }
 
     private static long mix64(long value) {

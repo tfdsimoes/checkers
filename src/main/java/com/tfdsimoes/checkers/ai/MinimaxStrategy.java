@@ -40,7 +40,7 @@ public final class MinimaxStrategy implements AiStrategy {
         for (Move move : moves) {
             SearchCancellation.checkInterrupted();
             GameState next = game.searchCopy();
-            next.makeMove(move);
+            next.makeGeneratedMove(move);
             int score = search(next, depth - 1, perspective, 1);
             if (score > bestScore) {
                 bestScore = score;
@@ -70,7 +70,7 @@ public final class MinimaxStrategy implements AiStrategy {
         int bestScore = maximizing ? NEGATIVE_INFINITY : POSITIVE_INFINITY;
         for (Move move : moves) {
             GameState next = game.searchCopy();
-            next.makeMove(move);
+            next.makeGeneratedMove(move);
             int score = search(next, remainingDepth - 1, perspective, ply + 1);
             bestScore = maximizing ? Math.max(bestScore, score) : Math.min(bestScore, score);
         }

@@ -33,6 +33,7 @@ class GameRulesTest {
         List<Move> moves = MoveGenerator.legalMoves(board, Side.BLACK);
 
         assertEquals(List.of("9x18"), moves.stream().map(Move::notation).toList());
+        assertMobilityMatchesLegalMoves(board);
     }
 
     @Test
@@ -42,6 +43,7 @@ class GameRulesTest {
         board.setPiece(square(14), new Piece(Side.WHITE, false));
         board.setPiece(square(22), new Piece(Side.WHITE, false));
         GameState game = new GameState(board, Side.BLACK);
+        assertMobilityMatchesLegalMoves(board);
 
         Move move = game.legalMoves().get(0);
         assertEquals("9x18x25", move.notation());
@@ -50,6 +52,11 @@ class GameRulesTest {
         assertEquals(new Piece(Side.BLACK, false), game.board().pieceAt(square(25)));
         assertEquals(0, game.board().pieceCount(Side.WHITE));
         assertEquals(GameStatus.BLACK_WON, game.status());
+    }
+
+    @Test
+    void mobilityDifferenceMatchesLegalMoveCountsWithoutChangingTheBoard() {
+        assertMobilityMatchesLegalMoves(Board.startingPosition());
     }
 
     @Test
@@ -191,6 +198,17 @@ class GameRulesTest {
                 .findFirst()
                 .orElseThrow(() -> new AssertionError("Expected legal move " + notation));
         game.makeMove(move);
+    }
+
+    private static void assertMobilityMatchesLegalMoves(Board board) {
+        Board before = board.copy();
+        int expected = MoveGenerator.legalMoves(board, Side.BLACK).size()
+                - MoveGenerator.legalMoves(board, Side.WHITE).size();
+        assertEquals(expected, MoveGenerator.mobilityDifference(board));
+        for (int squareNumber = 1; squareNumber <= Board.PLAYABLE_SQUARES; squareNumber++) {
+            Position position = square(squareNumber);
+            assertEquals(before.pieceAt(position), board.pieceAt(position));
+        }
     }
 
     private static Position square(int number) {
