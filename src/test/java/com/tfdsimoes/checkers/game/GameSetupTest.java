@@ -2,6 +2,7 @@ package com.tfdsimoes.checkers.game;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tfdsimoes.checkers.ai.AlgorithmRegistry;
@@ -61,6 +62,31 @@ class GameSetupTest {
         assertEquals(GameSetup.create(configuration).algorithmNames(),
                 GameSetup.create(configuration).algorithmNames());
         assertEquals(Side.WHITE, configuration.nextGame().firstPlayerSide());
+        assertEquals(12346L, configuration.nextGame().seed());
+    }
+
+    @Test
+    void randomSeedChangesForRematches() {
+        GameConfiguration configuration = GameConfiguration.withRandomSeed(
+                GameMode.PLAYER_VS_MACHINE, Difficulty.MEDIUM, Side.WHITE, 12345L);
+
+        GameConfiguration rematch = configuration.nextGame();
+
+        assertTrue(rematch.randomSeed());
+        assertNotEquals(configuration.seed(), rematch.seed());
+        assertEquals(Side.BLACK, rematch.firstPlayerSide());
+    }
+
+    @Test
+    void fixedSeedCanStartANewSessionAtTheOriginalValue() {
+        GameConfiguration firstSession = configuration(GameMode.PLAYER_VS_MACHINE, Side.BLACK);
+        GameConfiguration rematch = firstSession.nextGame();
+        GameConfiguration newSession = configuration(GameMode.PLAYER_VS_MACHINE, Side.BLACK);
+
+        assertEquals(12345L, firstSession.seed());
+        assertEquals(12346L, rematch.seed());
+        assertEquals(12345L, newSession.seed());
+        assertFalse(newSession.randomSeed());
     }
 
     private static GameConfiguration configuration(GameMode mode, Side side) {
