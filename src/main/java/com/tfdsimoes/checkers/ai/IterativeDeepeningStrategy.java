@@ -51,7 +51,7 @@ public final class IterativeDeepeningStrategy implements AiStrategy {
             List<Move> moves = ordered(game.legalMoves(), tableMove, context.killers, 0);
             for (Move move : moves) {
                 SearchCancellation.checkInterrupted();
-                GameState next = game.copy();
+                GameState next = game.searchCopy();
                 next.makeMove(move);
                 int score = -search(next, depth - 1, -POSITIVE_INFINITY, POSITIVE_INFINITY, 1, context);
                 if (score > bestScore) {
@@ -111,7 +111,7 @@ public final class IterativeDeepeningStrategy implements AiStrategy {
         int bestScore = NEGATIVE_INFINITY;
         Move bestMove = null;
         for (Move move : moves) {
-            GameState next = game.copy();
+            GameState next = game.searchCopy();
             next.makeMove(move);
             int score = -search(next, depth - 1, -beta, -alpha, ply + 1, context);
             if (score > bestScore) {

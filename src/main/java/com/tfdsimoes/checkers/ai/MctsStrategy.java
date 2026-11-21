@@ -34,7 +34,7 @@ public final class MctsStrategy implements AiStrategy {
             throw new IllegalStateException("No legal move is available");
         }
         Side rootSide = game.currentPlayer();
-        Node root = new Node(game.copy(), null, null);
+        Node root = new Node(game.searchCopy(), null, null);
 
         for (int iteration = 0; iteration < iterations; iteration++) {
             SearchCancellation.checkInterrupted();
@@ -45,14 +45,14 @@ public final class MctsStrategy implements AiStrategy {
             if (!node.isTerminal() && !node.unexpandedMoves.isEmpty()) {
                 int index = random.nextInt(node.unexpandedMoves.size());
                 Move move = node.unexpandedMoves.remove(index);
-                GameState childState = node.state.copy();
+                GameState childState = node.state.searchCopy();
                 childState.makeMove(move);
                 Node child = new Node(childState, node, move);
                 node.children.add(child);
                 node = child;
             }
 
-            double outcome = rollout(node.state.copy(), rootSide, random);
+            double outcome = rollout(node.state.searchCopy(), rootSide, random);
             for (Node visited = node; visited != null; visited = visited.parent) {
                 visited.visits++;
                 visited.value += outcome;

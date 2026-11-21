@@ -107,6 +107,17 @@ class GameRulesTest {
     }
 
     @Test
+    void playerWithoutAStartingMoveHasAlreadyLost() {
+        Board board = new Board();
+        board.setPiece(square(32), new Piece(Side.BLACK, false));
+        board.setPiece(square(5), new Piece(Side.WHITE, false));
+        GameState game = new GameState(board, Side.BLACK);
+
+        assertEquals(GameStatus.WHITE_WON, game.status());
+        assertTrue(game.legalMoves().isEmpty());
+    }
+
+    @Test
     void threefoldRepetitionRequiresSamePositionAndSideToMove() {
         Board board = new Board();
         board.setPiece(square(9), new Piece(Side.BLACK, true));
