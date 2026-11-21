@@ -65,6 +65,15 @@ public final class GameState {
         return noProgressPlies;
     }
 
+    public long drawContextHash() {
+        long hash = noProgressPlies;
+        for (Map.Entry<String, Integer> repetition : repetitions.entrySet()) {
+            long entry = ((long) repetition.getKey().hashCode() << 32) ^ repetition.getValue();
+            hash ^= mix64(entry);
+        }
+        return hash;
+    }
+
     public List<Move> history() {
         return List.copyOf(history);
     }
@@ -131,5 +140,11 @@ public final class GameState {
                 })
                 .collect(Collectors.joining());
         return currentPlayer.name() + pieces;
+    }
+
+    private static long mix64(long value) {
+        value = (value ^ (value >>> 30)) * 0xbf58476d1ce4e5b9L;
+        value = (value ^ (value >>> 27)) * 0x94d049bb133111ebL;
+        return value ^ (value >>> 31);
     }
 }
