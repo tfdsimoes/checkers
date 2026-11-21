@@ -1,11 +1,14 @@
 package com.tfdsimoes.checkers.ui;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.tfdsimoes.checkers.game.GameMode;
 import com.tfdsimoes.checkers.model.Board;
 import com.tfdsimoes.checkers.model.Position;
+import com.tfdsimoes.checkers.model.Side;
 import org.junit.jupiter.api.Test;
 
 class BoardViewCoordinatesTest {
@@ -39,5 +42,17 @@ class BoardViewCoordinatesTest {
                 () -> BoardViewCoordinates.toBoardPosition(-1, 0, false));
         assertThrows(IllegalArgumentException.class,
                 () -> BoardViewCoordinates.toBoardPosition(0, Board.SIZE, true));
+    }
+
+    @Test
+    void flipsOnlyForAWhiteHumanInPlayerVersusMachine() {
+        assertTrue(BoardViewCoordinates.shouldFlipForWhitePlayer(
+                GameMode.PLAYER_VS_MACHINE, Side.WHITE));
+        assertFalse(BoardViewCoordinates.shouldFlipForWhitePlayer(
+                GameMode.PLAYER_VS_MACHINE, Side.BLACK));
+        assertFalse(BoardViewCoordinates.shouldFlipForWhitePlayer(
+                GameMode.PLAYER_VS_PLAYER, Side.WHITE));
+        assertFalse(BoardViewCoordinates.shouldFlipForWhitePlayer(
+                GameMode.MACHINE_VS_MACHINE, Side.WHITE));
     }
 }

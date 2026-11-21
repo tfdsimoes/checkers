@@ -2,6 +2,7 @@ package com.tfdsimoes.checkers.ui;
 
 import com.tfdsimoes.checkers.game.GameState;
 import com.tfdsimoes.checkers.model.Board;
+import com.tfdsimoes.checkers.model.Move;
 import com.tfdsimoes.checkers.model.Piece;
 import com.tfdsimoes.checkers.model.Position;
 import com.tfdsimoes.checkers.model.Side;
@@ -18,8 +19,10 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.geom.Path2D;
 import java.util.List;
+import java.util.Objects;
 import java.util.function.Consumer;
 import javax.swing.JPanel;
+import javax.swing.Timer;
 
 final class GameBoardPanel extends JPanel {
     private static final Color LIGHT_SQUARE = new Color(225, 202, 165);
@@ -28,11 +31,19 @@ final class GameBoardPanel extends JPanel {
     private static final Color LEGAL_DESTINATION = new Color(110, 180, 90);
     private static final Color COORDINATE_LABEL = new Color(80, 57, 39);
     private static final Color SQUARE_LABEL = new Color(245, 222, 184);
+    private static final Color LAST_MOVE_HIGHLIGHT = new Color(242, 182, 59, 105);
+    private static final Color CAPTURE_HIGHLIGHT = new Color(192, 61, 43, 125);
+    private static final int ANIMATION_FRAME_DELAY_MS = 16;
+    private static final long ANIMATION_SEGMENT_NANOS = 110_000_000L;
 
     private final GameState game;
     private final Consumer<Position> clickHandler;
     private Position selected;
     private List<Position> destinations = List.of();
+    private boolean flipped;
+    private Move lastMove;
+    private Animation animation;
+    private Timer animationTimer;
 
     GameBoardPanel(GameState game, Consumer<Position> clickHandler) {
         this.game = game;
@@ -41,6 +52,9 @@ final class GameBoardPanel extends JPanel {
         addMouseListener(new MouseAdapter() {
             @Override
             public void mousePressed(MouseEvent event) {
+                if (animation != null) {
+                    return;
+                }
                 int cell = cellSize();
                 int left = boardLeft(cell);
                 int top = boardTop(cell);
@@ -48,7 +62,7 @@ final class GameBoardPanel extends JPanel {
                 int row = (event.getY() - top) / cell;
                 if (event.getX() >= left && event.getY() >= top
                         && column >= 0 && column < Board.SIZE && row >= 0 && row < Board.SIZE) {
-                    clickHandler.accept(BoardViewCoordinates.toBoardPosition(row, column, false));
+                    clickHandler.accept(BoardViewCoordinates.toBoardPosition(row, column, flipped));
                 }
             }
         });
@@ -60,6 +74,40 @@ final class GameBoardPanel extends JPanel {
         repaint();
     }
 
+    void setFlipped(boolean flipped) {
+        this.flipped = flipped;
+        repaint();
+    }
+
+    void setLastMove(Move move) {
+        stopAnimation();
+        lastMove = move;
+        repaint();
+    }
+
+    void animateMove(Move move, Piece movingPiece) {
+        Objects.requireNonNull(move, "move");
+        Objects.requireNonNull(movingPiece, "movingPiece");
+        stopAnimation();
+        lastMove = move;
+        animation = new Animation(move, movingPiece, System.nanoTime());
+        animationTimer = new Timer(ANIMATION_FRAME_DELAY_MS, event -> {
+            Animation active = animation;
+            Timer timer = (Timer) event.getSource();
+            if (active == null || System.nanoTime() - active.startedAtNanos() >= active.durationNanos()) {
+                animation = null;
+                timer.stop();
+                if (animationTimer == timer) {
+                    animationTimer = null;
+                }
+            }
+            repaint();
+        });
+        animationTimer.setCoalesce(true);
+        animationTimer.start();
+        repaint();
+    }
+
     @Override
     protected void paintComponent(Graphics graphics) {
         super.paintComponent(graphics);
@@ -68,13 +116,15 @@ final class GameBoardPanel extends JPanel {
         int cell = cellSize();
         int left = boardLeft(cell);
         int top = boardTop(cell);
+        AnimationFrame animationFrame = currentAnimationFrame(left, top, cell);
         Board board = game.board();
         for (int row = 0; row < Board.SIZE; row++) {
             for (int column = 0; column < Board.SIZE; column++) {
                 int x = left + column * cell;
                 int y = top + row * cell;
-                Position position = new Position(row, column);
+                Position position = BoardViewCoordinates.toBoardPosition(row, column, flipped);
                 paintSquare(g, position.isPlayable(), x, y, cell);
+                paintHighlights(g, position, x, y, cell);
                 if (position.equals(selected)) {
                     g.setColor(SELECTED_SQUARE);
                     g.fillRect(x, y, cell, cell);
@@ -82,18 +132,40 @@ final class GameBoardPanel extends JPanel {
                     g.setColor(LEGAL_DESTINATION);
                     g.fillOval(x + cell / 3, y + cell / 3, cell / 3, cell / 3);
                 }
-                paintPiece(g, board.pieceAt(position), x, y, cell);
+                Piece piece = board.pieceAt(position);
+                if (animation != null && position.equals(animation.move().to())) {
+                    piece = null;
+                }
+                paintPiece(g, piece, x, y, cell);
                 paintSquareNumber(g, position, x, y, cell);
             }
+        }
+        if (animationFrame != null) {
+            paintPiece(g, animationFrame.piece(), (int) Math.round(animationFrame.x()),
+                    (int) Math.round(animationFrame.y()), cell);
         }
         g.setColor(Color.BLACK);
         g.setStroke(new BasicStroke(2));
         g.drawRect(left, top, cell * Board.SIZE, cell * Board.SIZE);
-        paintCoordinates(g, left, top, cell);
+        paintCoordinates(g, left, top, cell, flipped);
         g.dispose();
     }
 
-    private void paintCoordinates(Graphics2D graphics, int left, int top, int cell) {
+    private void paintHighlights(Graphics2D graphics, Position position, int x, int y, int cell) {
+        if (lastMove == null) {
+            return;
+        }
+        if (lastMove.path().contains(position)) {
+            graphics.setColor(LAST_MOVE_HIGHLIGHT);
+            graphics.fillRect(x, y, cell, cell);
+        }
+        if (lastMove.captures().contains(position)) {
+            graphics.setColor(CAPTURE_HIGHLIGHT);
+            graphics.fillRect(x, y, cell, cell);
+        }
+    }
+
+    private void paintCoordinates(Graphics2D graphics, int left, int top, int cell, boolean boardFlipped) {
         int margin = coordinateMargin();
         int boardSize = cell * Board.SIZE;
         graphics.setColor(COORDINATE_LABEL);
@@ -104,13 +176,15 @@ final class GameBoardPanel extends JPanel {
         int middleBaselineOffset = (cell + metrics.getAscent() - metrics.getDescent()) / 2;
 
         for (int column = 0; column < Board.SIZE; column++) {
-            String label = Character.toString((char) ('A' + column));
+            Position modelPosition = BoardViewCoordinates.toBoardPosition(0, column, boardFlipped);
+            String label = Character.toString((char) ('A' + modelPosition.column()));
             int x = left + column * cell + (cell - metrics.stringWidth(label)) / 2;
             graphics.drawString(label, x, topBaseline);
             graphics.drawString(label, x, bottomBaseline);
         }
         for (int row = 0; row < Board.SIZE; row++) {
-            String label = Integer.toString(Board.SIZE - row);
+            Position modelPosition = BoardViewCoordinates.toBoardPosition(row, 0, boardFlipped);
+            String label = Integer.toString(Board.SIZE - modelPosition.row());
             int y = top + row * cell + middleBaselineOffset;
             int labelWidth = metrics.stringWidth(label);
             graphics.drawString(label, left - (margin + labelWidth) / 2, y);
@@ -193,6 +267,32 @@ final class GameBoardPanel extends JPanel {
                 (int) (crownX + crownWidth * 0.88f), (int) (crownY + crownHeight * 0.9f));
     }
 
+    private AnimationFrame currentAnimationFrame(int left, int top, int cell) {
+        if (animation == null) {
+            return null;
+        }
+        long elapsed = System.nanoTime() - animation.startedAtNanos();
+        if (elapsed >= animation.durationNanos()) {
+            stopAnimation();
+            return null;
+        }
+        int segment = (int) (elapsed / ANIMATION_SEGMENT_NANOS);
+        double progress = (elapsed % ANIMATION_SEGMENT_NANOS) / (double) ANIMATION_SEGMENT_NANOS;
+        Position from = BoardViewCoordinates.toViewPosition(animation.move().path().get(segment), flipped);
+        Position to = BoardViewCoordinates.toViewPosition(animation.move().path().get(segment + 1), flipped);
+        double x = left + (from.column() + (to.column() - from.column()) * progress) * cell;
+        double y = top + (from.row() + (to.row() - from.row()) * progress) * cell;
+        return new AnimationFrame(animation.movingPiece(), x, y);
+    }
+
+    private void stopAnimation() {
+        animation = null;
+        if (animationTimer != null) {
+            animationTimer.stop();
+            animationTimer = null;
+        }
+    }
+
     private int cellSize() {
         return Math.max(1, (Math.min(getWidth(), getHeight()) - 2 * coordinateMargin()) / Board.SIZE);
     }
@@ -207,5 +307,14 @@ final class GameBoardPanel extends JPanel {
 
     private int boardTop(int cell) {
         return (getHeight() - cell * Board.SIZE) / 2;
+    }
+
+    private record Animation(Move move, Piece movingPiece, long startedAtNanos) {
+        private long durationNanos() {
+            return ANIMATION_SEGMENT_NANOS * (move.path().size() - 1);
+        }
+    }
+
+    private record AnimationFrame(Piece piece, double x, double y) {
     }
 }
